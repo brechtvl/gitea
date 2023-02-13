@@ -89,25 +89,27 @@ func GetDefaultMergeMessage(ctx context.Context, baseGitRepo *git.Repository, pr
 				vars["HeadRepoOwnerName"] = pr.HeadRepo.OwnerName
 				vars["HeadRepoName"] = pr.HeadRepo.Name
 			}
-			// Blender: disabled because it causes crashes in pull requests
-			//	refs, err := pr.ResolveCrossReferences(ctx)
-			//	if err == nil {
-			//		closeIssueIndexes := make([]string, 0, len(refs))
-			//		closeWord := "close"
-			//		if len(setting.Repository.PullRequest.CloseKeywords) > 0 {
-			//			closeWord = setting.Repository.PullRequest.CloseKeywords[0]
-			//		}
-			//		for _, ref := range refs {
-			//			if ref.RefAction == references.XRefActionCloses {
-			//				closeIssueIndexes = append(closeIssueIndexes, fmt.Sprintf("%s %s%d", closeWord, issueReference, ref.Issue.Index))
-			//			}
-			//		}
-			//		if len(closeIssueIndexes) > 0 {
-			//			vars["ClosingIssues"] = strings.Join(closeIssueIndexes, ", ")
-			//		} else {
-			//			vars["ClosingIssues"] = ""
-			//		}
-			//	}
+			refs, err := pr.ResolveCrossReferences(ctx)
+			if err == nil {
+				closeIssueIndexes := make([]string, 0, len(refs))
+				closeWord := "close"
+				if len(setting.Repository.PullRequest.CloseKeywords) > 0 {
+					closeWord = setting.Repository.PullRequest.CloseKeywords[0]
+				}
+				for _, ref := range refs {
+					if ref.RefAction == references.XRefActionCloses {
+						if err := ref.LoadIssue(ctx); err != nil {
+							return "", "", err
+						}
+						closeIssueIndexes = append(closeIssueIndexes, fmt.Sprintf("%s %s%d", closeWord, issueReference, ref.Issue.Index))
+					}
+				}
+				if len(closeIssueIndexes) > 0 {
+					vars["ClosingIssues"] = strings.Join(closeIssueIndexes, ", ")
+				} else {
+					vars["ClosingIssues"] = ""
+				}
+			}
 			message, body = expandDefaultMergeMessage(templateContent, vars)
 			return message, body, nil
 		}
