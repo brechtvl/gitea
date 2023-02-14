@@ -19,5 +19,5 @@ func GetReviewerTeams(repo *repo_model.Repository) ([]*organization.Team, error)
 		return nil, nil
 	}
 
-	return organization.GetTeamsWithAccessToRepo(db.DefaultContext, repo.OwnerID, repo.ID, perm.AccessModeRead)
+	return organization.FilterLargeTeams(organization.GetTeamsWithAccessToRepo(db.DefaultContext, repo.OwnerID, repo.ID, perm.AccessModeRead))
 }
