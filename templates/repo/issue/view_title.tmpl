@@ -61,9 +61,7 @@
 					{{$.locale.Tr "repo.pulls.title_desc" .NumCommits $headHref $baseHref | Safe}}
 				</span>
 			{{end}}
-			<span id="pull-desc-edit gt-hidden">
-				<!-- BLENDER: disable branch switching because accidentally merging main into release branch is too easy -->
-				<div class="gt-hidden">
+			<span id="pull-desc-edit" class="gt-hidden">
 				<div class="ui floating filter dropdown">
 					<div class="ui basic small button">
 						<span class="text">{{.locale.Tr "repo.pulls.compare_compare"}}: {{$.HeadTarget}}</span>
@@ -91,7 +89,7 @@
 						</div>
 					</div>
 				</div>
-				</div>
+				<div class="desc"><br/>When changing the target branch, be careful to rebase the branch in your fork to match. See <a href="https://wiki.blender.org/wiki/Tools/Pull_Requests">documentation</a>.</div>
 			</span>
 		{{end}}
 	{{else}}
