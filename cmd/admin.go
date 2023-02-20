@@ -234,10 +234,6 @@ var (
 			Name:  "group-team-map-removal",
 			Usage: "Activate automatic team membership removal depending on groups",
 		},
-		cli.BoolFlag{
-			Name:  "force-oauth",
-			Usage: "set to force all logins to the configured oauth provider",
-		},
 	}
 
 	microcmdAuthUpdateOauth = cli.Command{
@@ -454,7 +450,6 @@ func parseOAuth2Config(c *cli.Context) *oauth2.Source {
 		CustomURLMapping:              customURLMapping,
 		IconURL:                       c.String("icon-url"),
 		SkipLocalTwoFA:                c.Bool("skip-local-2fa"),
-		ForceOAuth:                    c.Bool("force-oauth"),
 		Scopes:                        c.StringSlice("scopes"),
 		RequiredClaimName:             c.String("required-claim-name"),
 		RequiredClaimValue:            c.String("required-claim-value"),
@@ -550,9 +545,6 @@ func runUpdateOauth(c *cli.Context) error {
 	}
 	if c.IsSet("group-team-map-removal") {
 		oAuth2Config.GroupTeamMapRemoval = c.Bool("group-team-map-removal")
-	}
-	if c.IsSet("force-oauth") {
-		oAuth2Config.ForceOAuth = c.BoolT("force-oauth")
 	}
 
 	// update custom URL mapping

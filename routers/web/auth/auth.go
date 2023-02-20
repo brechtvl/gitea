@@ -137,6 +137,7 @@ func checkAutoLogin(ctx *context.Context) bool {
 	return false
 }
 
+// BLENDER: always use OAuth unless ?noredirect=true is set
 func checkForceOAuth(ctx *context.Context) bool {
 	// Check if authentication is forced to OAuth
 	if ctx.FormBool("noredirect") {
@@ -148,19 +149,9 @@ func checkForceOAuth(ctx *context.Context) bool {
 		return false
 	}
 
-	var OAuthList []int64
-
 	for _, source := range authSources {
-		if forced, ok := source.Cfg.(auth_service.ForceOAuth); ok && forced.IsOAuthForced() {
-			OAuthList = append(OAuthList, source.ID)
-			app, err := auth.GetOAuth2ApplicationByID(ctx, OAuthList[0])
-			if err != nil {
-				return false
-			}
-			url := app.PrimaryRedirectURI()
-			ctx.Redirect(url)
-			return true
-		}
+		ctx.Redirect(setting.AppSubURL + "/user/oauth2/" + source.Name)
+		return true
 	}
 
 	return false
