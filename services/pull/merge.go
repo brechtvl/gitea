@@ -38,8 +38,8 @@ import (
 	issue_service "code.gitea.io/gitea/services/issue"
 )
 
-// GetDefaultMergeMessage returns default message used when merging pull request
-func GetDefaultMergeMessage(ctx context.Context, baseGitRepo *git.Repository, pr *issues_model.PullRequest, mergeStyle repo_model.MergeStyle) (message, body string, err error) {
+// Compose message used when merging pull request.
+func getMergeMessage(ctx context.Context, baseGitRepo *git.Repository, pr *issues_model.PullRequest, mergeStyle repo_model.MergeStyle, commitTitle, commitBody string) (message, body string, err error) {
 	if err := pr.LoadHeadRepo(ctx); err != nil {
 		return "", "", err
 	}
@@ -70,6 +70,8 @@ func GetDefaultMergeMessage(ctx context.Context, baseGitRepo *git.Repository, pr
 		if err != nil {
 			if !git.IsErrNotExist(err) {
 				return "", "", err
+			} else if mergeStyle == repo_model.MergeStyleRebase {
+				return "", "", nil
 			}
 		} else {
 			vars := map[string]string{
@@ -84,6 +86,10 @@ func GetDefaultMergeMessage(ctx context.Context, baseGitRepo *git.Repository, pr
 				"PullRequestPosterName":  pr.Issue.Poster.Name,
 				"PullRequestIndex":       strconv.FormatInt(pr.Index, 10),
 				"PullRequestReference":   fmt.Sprintf("%s%d", issueReference, pr.Index),
+			}
+			if mergeStyle == repo_model.MergeStyleRebase {
+				vars["CommitTitle"] = commitTitle
+				vars["CommitBody"] = commitBody
 			}
 			if pr.HeadRepo != nil {
 				vars["HeadRepoOwnerName"] = pr.HeadRepo.OwnerName
@@ -139,6 +145,11 @@ func expandDefaultMergeMessage(template string, vars map[string]string) (message
 	}
 	mapping := func(s string) string { return vars[s] }
 	return os.Expand(message, mapping), os.Expand(body, mapping)
+}
+
+// GetDefaultMergeMessage returns default message used when merging pull request.
+func GetDefaultMergeMessage(ctx context.Context, baseGitRepo *git.Repository, pr *issues_model.PullRequest, mergeStyle repo_model.MergeStyle) (message, body string, err error) {
+	return getMergeMessage(ctx, baseGitRepo, pr, mergeStyle, "", "")
 }
 
 // Merge merges pull request to base repository.
@@ -526,39 +537,21 @@ func rawMerge(ctx context.Context, pr *issues_model.PullRequest, doer *user_mode
 		outbuf.Reset()
 		errbuf.Reset()
 
-		cmd := git.NewCommand(ctx, "merge")
 		if mergeStyle == repo_model.MergeStyleRebase {
-			cmd.AddArguments("--ff-only")
+			if err := rebaseMerge(ctx, pr, tmpBasePath, stagingBranch); err != nil {
+				return "", err
+			}
 		} else {
-			cmd.AddArguments("--no-ff", "--no-commit")
-		}
-		cmd.AddDynamicArguments(stagingBranch)
+			// Prepare merge with commit
+			cmd := git.NewCommand(ctx, "merge", "--no-ff", "--no-commit").AddDynamicArguments(stagingBranch)
 
-		// Prepare merge with commit
-		if err := runMergeCommand(pr, mergeStyle, cmd, tmpBasePath); err != nil {
-			log.Error("Unable to merge staging into base: %v", err)
-			return "", err
-		}
-		if mergeStyle == repo_model.MergeStyleRebaseMerge {
-			if err := commitAndSignNoAuthor(ctx, pr, message, signArgs, tmpBasePath, env); err != nil {
-				log.Error("Unable to make final commit: %v", err)
+			if err := runMergeCommand(pr, mergeStyle, cmd, tmpBasePath); err != nil {
+				log.Error("Unable to merge staging into base: %v", err)
 				return "", err
 			}
-		} else if mergeStyle == repo_model.MergeStyleRebase {
-			// Append Pull Request #123 to commit message
-			var existing_message strings.Builder
-			cmd_show := git.NewCommand(ctx, "show", "--format=%B", "-s")
-			if err := cmd_show.Run(&git.RunOpts{Dir: tmpBasePath, Stdout: &existing_message}); err != nil {
-				log.Error("Failed to get commit message for Pull Request #%d: %v", pr.Index, err)
-				return "", err
-			}
-
-			new_message := strings.TrimSpace(existing_message.String())
-			if match, _ := regexp.MatchString(fmt.Sprintf("#\\b%d\\b", pr.Index), new_message); !match {
-				new_message = new_message + fmt.Sprintf("\n\nPull Request #%d", pr.Index)
-				cmd_amend := git.NewCommand(ctx, "commit", "--amend", "-m").AddDynamicArguments(new_message)
-				if err := cmd_amend.Run(&git.RunOpts{Dir: tmpBasePath}); err != nil {
-					log.Error("Failed to amend commit message with Pull Request #%d: %v", pr.Index, err)
+			if mergeStyle == repo_model.MergeStyleRebaseMerge {
+				if err := commitAndSignNoAuthor(ctx, pr, message, signArgs, tmpBasePath, env); err != nil {
+					log.Error("Unable to make final commit: %v", err)
 					return "", err
 				}
 			}
@@ -688,6 +681,78 @@ func rawMerge(ctx context.Context, pr *issues_model.PullRequest, doer *user_mode
 	errbuf.Reset()
 
 	return mergeCommitID, nil
+}
+
+// Compose message to amend commit in rebase merge of pull request.
+func getRebaseAmendMessage(ctx context.Context, baseGitRepo *git.Repository, pr *issues_model.PullRequest, tmpBasePath string) (message string, err error) {
+	// Get existing commit message.
+	var commitMessage strings.Builder
+	cmd := git.NewCommand(ctx, "show", "--format=%B", "-s")
+	if err := cmd.Run(&git.RunOpts{Dir: tmpBasePath, Stdout: &commitMessage}); err != nil {
+		return "", err
+	}
+
+	commitTitle, commitBody, _ := strings.Cut(commitMessage.String(), "\n")
+	commitTitle = strings.TrimSpace(commitTitle)
+	commitBody = strings.TrimSpace(commitBody)
+
+	message, body, err := getMergeMessage(ctx, baseGitRepo, pr, repo_model.MergeStyleRebase, commitTitle, commitBody)
+	if err != nil || message == "" {
+		return "", err
+	}
+
+	if len(body) > 0 {
+		message = message + "\n\n" + body
+	}
+	return message, err
+}
+
+// Perform rebase merge without merge commits.
+func rebaseMerge(ctx context.Context, pr *issues_model.PullRequest, tmpBasePath, stagingBranch string) error {
+	baseHeadSHA, err := git.GetFullCommitID(ctx, tmpBasePath, "HEAD")
+	if err != nil {
+		return fmt.Errorf("Failed to get full commit id for HEAD: %w", err)
+	}
+
+	cmd := git.NewCommand(ctx, "merge", "--ff-only").AddDynamicArguments(stagingBranch)
+	if err := runMergeCommand(pr, repo_model.MergeStyleRebase, cmd, tmpBasePath); err != nil {
+		log.Error("Unable to merge staging into base: %v", err)
+		return err
+	}
+
+	// Check if anything actually changed before we amend the message, fast forward can skip commits.
+	newMergeHeadSHA, err := git.GetFullCommitID(ctx, tmpBasePath, "HEAD")
+	if err != nil {
+		return fmt.Errorf("Failed to get full commit id for HEAD: %w", err)
+	}
+	if baseHeadSHA == newMergeHeadSHA {
+		return nil
+	}
+
+	// Original repo to read template from.
+	baseGitRepo, err := git.OpenRepository(ctx, pr.BaseRepo.RepoPath())
+	if err != nil {
+		log.Error("Unable to get Git repo for rebase: %v", err)
+		return err
+	}
+	defer baseGitRepo.Close()
+
+	// Amend last commit message based on template, if one exists
+	newMessage, err := getRebaseAmendMessage(ctx, baseGitRepo, pr, tmpBasePath)
+	if err != nil {
+		log.Error("Unable to get commit message for amend: %v", err)
+		return err
+	}
+
+	if newMessage != "" {
+		cmdAmend := git.NewCommand(ctx, "commit", "--amend", "-m").AddDynamicArguments(newMessage)
+		if err := cmdAmend.Run(&git.RunOpts{Dir: tmpBasePath}); err != nil {
+			log.Error("Unable to amend commit message: %v", err)
+			return err
+		}
+	}
+
+	return nil
 }
 
 func commitAndSignNoAuthor(ctx context.Context, pr *issues_model.PullRequest, message string, signArgs git.TrustedCmdArgs, tmpBasePath string, env []string) error {
