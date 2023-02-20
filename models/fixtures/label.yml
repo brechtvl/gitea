@@ -4,6 +4,7 @@
   org_id: 0
   name: label1
   color: '#abcdef'
+  exclusive: false
   num_issues: 2
   num_closed_issues: 0
 
@@ -13,6 +14,7 @@
   org_id: 0
   name: label2
   color: '#000000'
+  exclusive: false
   num_issues: 1
   num_closed_issues: 1
 
@@ -22,6 +24,7 @@
   org_id: 3
   name: orglabel3
   color: '#abcdef'
+  exclusive: false
   num_issues: 0
   num_closed_issues: 0
 
@@ -31,6 +34,7 @@
   org_id: 3
   name: orglabel4
   color: '#000000'
+  exclusive: false
   num_issues: 1
   num_closed_issues: 0
 
@@ -40,6 +44,7 @@
   org_id: 0
   name: pull-test-label
   color: '#000000'
+  exclusive: false
   num_issues: 0
   num_closed_issues: 0
 
@@ -49,6 +54,7 @@
   org_id: 0
   name: unscoped_label
   color: '#000000'
+  exclusive: false
   num_issues: 0
   num_closed_issues: 0
 
@@ -56,8 +62,9 @@
   id: 7
   repo_id: 55
   org_id: 0
-  name: scope::label1
+  name: scope/label1
   color: '#000000'
+  exclusive: true
   num_issues: 0
   num_closed_issues: 0
 
@@ -65,8 +72,9 @@
   id: 8
   repo_id: 55
   org_id: 0
-  name: scope::label2
+  name: scope/label2
   color: '#000000'
+  exclusive: true
   num_issues: 0
   num_closed_issues: 0
 
@@ -74,7 +82,8 @@
   id: 9
   repo_id: 55
   org_id: 0
-  name: scope::subscope::label2
+  name: scope/subscope/label2
   color: '#000000'
+  exclusive: true
   num_issues: 0
   num_closed_issues: 0

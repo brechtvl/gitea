@@ -540,15 +540,15 @@ func (ts labelSorter) Swap(i, j int) {
 
 // Ensure only one label of a given scope exists, with labels at the end of the
 // array getting preference over earlier ones.
-func RemoveDuplicateScopeLabels(labels []*Label) []*Label {
-	var validLabels []*Label
+func RemoveDuplicateExclusiveLabels(labels []*Label) []*Label {
+	validLabels := make([]*Label, 0, len(labels))
 
 	for i, label := range labels {
-		scope := label.Scope()
+		scope := label.ExclusiveScope()
 		if scope != "" {
 			foundOther := false
 			for _, otherLabel := range labels[i+1:] {
-				if otherLabel.Scope() == scope {
+				if otherLabel.ExclusiveScope() == scope {
 					foundOther = true
 					break
 				}
@@ -580,7 +580,7 @@ func ReplaceIssueLabels(issue *Issue, labels []*Label, doer *user_model.User) (e
 		return err
 	}
 
-	labels = RemoveDuplicateScopeLabels(labels)
+	labels = RemoveDuplicateExclusiveLabels(labels)
 
 	sort.Sort(labelSorter(labels))
 	sort.Sort(labelSorter(issue.Labels))
@@ -2184,7 +2184,7 @@ func ResolveIssueMentionsByVisibility(ctx context.Context, issue *Issue, doer *u
 	resolved := make(map[string]bool, 10)
 	var mentionTeams []string
 
-	if err := issue.Repo.GetOwner(ctx); err != nil {
+	if err := issue.Repo.LoadOwner(ctx); err != nil {
 		return nil, err
 	}
 
@@ -2487,4 +2487,9 @@ func DeleteOrphanedIssues(ctx context.Context) error {
 		system_model.RemoveAllWithNotice(db.DefaultContext, "Delete issue attachment", attachmentPaths[i])
 	}
 	return nil
+}
+
+// HasOriginalAuthor returns if an issue was migrated and has an original author.
+func (issue *Issue) HasOriginalAuthor() bool {
+	return issue.OriginalAuthor != "" && issue.OriginalAuthorID != 0
 }

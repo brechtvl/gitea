@@ -87,6 +87,7 @@ type Label struct {
 	RepoID          int64 `xorm:"INDEX"`
 	OrgID           int64 `xorm:"INDEX"`
 	Name            string
+	Exclusive       bool
 	Description     string
 	Color           string `xorm:"VARCHAR(7)"`
 	NumIssues       int
@@ -126,11 +127,11 @@ func (label *Label) CalOpenOrgIssues(ctx context.Context, repoID, labelID int64)
 }
 
 // LoadSelectedLabelsAfterClick calculates the set of selected labels when a label is clicked
-func (label *Label) LoadSelectedLabelsAfterClick(currentSelectedLabels []int64, currentSelectedScopes []string) {
+func (label *Label) LoadSelectedLabelsAfterClick(currentSelectedLabels []int64, currentSelectedExclusiveScopes []string) {
 	var labelQuerySlice []string
 	labelSelected := false
 	labelID := strconv.FormatInt(label.ID, 10)
-	labelScope := label.Scope()
+	labelScope := label.ExclusiveScope()
 	for i, s := range currentSelectedLabels {
 		if s == label.ID {
 			labelSelected = true
@@ -139,7 +140,7 @@ func (label *Label) LoadSelectedLabelsAfterClick(currentSelectedLabels []int64, 
 			label.IsExcluded = true
 		} else if s != 0 {
 			// Exclude other labels in the same scope from selection
-			if s < 0 || labelScope == "" || labelScope != currentSelectedScopes[i] {
+			if s < 0 || labelScope == "" || labelScope != currentSelectedExclusiveScopes[i] {
 				labelQuerySlice = append(labelQuerySlice, strconv.FormatInt(s, 10))
 			}
 		}
@@ -161,34 +162,43 @@ func (label *Label) BelongsToRepo() bool {
 	return label.RepoID > 0
 }
 
-// Determine if label text should be light or dark to be readable on
-// background color.
+// Get color as RGB values in 0..255 range
+func (label *Label) ColorRGB() (float64, float64, float64, error) {
+	color, err := strconv.ParseUint(label.Color[1:], 16, 64)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	r := float64(uint8(0xFF & (uint32(color) >> 16)))
+	g := float64(uint8(0xFF & (uint32(color) >> 8)))
+	b := float64(uint8(0xFF & uint32(color)))
+	return r, g, b, nil
+}
+
+// Determine if label text should be light or dark to be readable on background color
 func (label *Label) UseLightTextColor() bool {
 	if strings.HasPrefix(label.Color, "#") {
-		if color, err := strconv.ParseUint(label.Color[1:], 16, 64); err == nil {
-			// sRGB color space luminance
-			r := float64(uint8(0xFF & (uint32(color) >> 16)))
-			g := float64(uint8(0xFF & (uint32(color) >> 8)))
-			b := float64(uint8(0xFF & uint32(color)))
-
-			luminance := (0.299*r + 0.587*g + 0.114*b) / 255
-
-			// NOTE: see web_src/js/components/ContextPopup.vue for similar implementation
-			return luminance < 0.5
+		if r, g, b, err := label.ColorRGB(); err == nil {
+			// Perceived brightness from: https://www.w3.org/TR/AERT/#color-contrast
+			// In the future WCAG 3 APCA may be a better solution
+			brightness := (0.299*r + 0.587*g + 0.114*b) / 255
+			return brightness < 0.35
 		}
 	}
 
 	return false
 }
 
-// Return scope substring of label name, or empty string if none exists.
-func (label *Label) Scope() string {
-	lastIndex := strings.LastIndex(label.Name, "::")
-	if lastIndex == -1 {
+// Return scope substring of label name, or empty string if none exists
+func (label *Label) ExclusiveScope() string {
+	if !label.Exclusive {
 		return ""
 	}
-
-	return label.Name[:lastIndex+2]
+	lastIndex := strings.LastIndex(label.Name, "/")
+	if lastIndex == -1 || lastIndex == 0 || lastIndex == len(label.Name)-1 {
+		return ""
+	}
+	return label.Name[:lastIndex]
 }
 
 // NewLabel creates a new label
@@ -240,7 +250,7 @@ func UpdateLabel(l *Label) error {
 	if !LabelColorPattern.MatchString(l.Color) {
 		return fmt.Errorf("bad color code: %s", l.Color)
 	}
-	return updateLabelCols(db.DefaultContext, l, "name", "description", "color")
+	return updateLabelCols(db.DefaultContext, l, "name", "description", "color", "exclusive")
 }
 
 // DeleteLabel delete a label
@@ -607,16 +617,16 @@ func newIssueLabel(ctx context.Context, issue *Issue, label *Label, doer *user_m
 	return updateLabelCols(ctx, label, "num_issues", "num_closed_issue")
 }
 
-// Remove all issue labels in the given scope
-func RemoveSameScopeIssueLabels(ctx context.Context, issue *Issue, label *Label, doer *user_model.User) (err error) {
-	scope := label.Scope()
+// Remove all issue labels in the given exclusive scope
+func RemoveDuplicateExclusiveIssueLabels(ctx context.Context, issue *Issue, label *Label, doer *user_model.User) (err error) {
+	scope := label.ExclusiveScope()
 	if scope == "" {
 		return nil
 	}
 
 	var toRemove []*Label
 	for _, issueLabel := range issue.Labels {
-		if label.ID != issueLabel.ID && issueLabel.Scope() == scope {
+		if label.ID != issueLabel.ID && issueLabel.ExclusiveScope() == scope {
 			toRemove = append(toRemove, issueLabel)
 		}
 	}
@@ -651,7 +661,7 @@ func NewIssueLabel(issue *Issue, label *Label, doer *user_model.User) (err error
 		return nil
 	}
 
-	if err = RemoveSameScopeIssueLabels(ctx, issue, label, doer); err != nil {
+	if err = RemoveDuplicateExclusiveIssueLabels(ctx, issue, label, doer); err != nil {
 		return nil
 	}
 

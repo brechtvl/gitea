@@ -113,6 +113,7 @@ func NewLabel(ctx *context.Context) {
 	l := &issues_model.Label{
 		RepoID:      ctx.Repo.Repository.ID,
 		Name:        form.Title,
+		Exclusive:   form.Exclusive,
 		Description: form.Description,
 		Color:       form.Color,
 	}
@@ -138,6 +139,7 @@ func UpdateLabel(ctx *context.Context) {
 	}
 
 	l.Name = form.Title
+	l.Exclusive = form.Exclusive
 	l.Description = form.Description
 	l.Color = form.Color
 	if err := issues_model.UpdateLabel(l); err != nil {
@@ -189,7 +191,7 @@ func UpdateIssueLabel(ctx *context.Context) {
 		if action == "toggle" {
 			// detach if any issues already have label, otherwise attach
 			action = "attach"
-			if label.Scope() == "" {
+			if label.ExclusiveScope() == "" {
 				for _, issue := range issues {
 					if issues_model.HasIssueLabel(ctx, issue.ID, label.ID) {
 						action = "detach"

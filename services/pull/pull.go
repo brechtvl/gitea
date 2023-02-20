@@ -675,7 +675,7 @@ func GetSquashMergeCommitMessages(ctx context.Context, pr *issues_model.PullRequ
 		if uniqueAuthors.Add(authorString) && authorString != posterSig {
 			// Compare use account as well to avoid adding the same author multiple times
 			// times when email addresses are private or multiple emails are used.
-			commitUser, _ := user_model.GetUserByEmailContext(ctx, commit.Author.Email)
+			commitUser, _ := user_model.GetUserByEmail(ctx, commit.Author.Email)
 			if commitUser == nil || commitUser.ID != pr.Issue.Poster.ID {
 				authors = append(authors, authorString)
 			}
@@ -699,7 +699,7 @@ func GetSquashMergeCommitMessages(ctx context.Context, pr *issues_model.PullRequ
 			for _, commit := range commits {
 				authorString := commit.Author.String()
 				if uniqueAuthors.Add(authorString) && authorString != posterSig {
-					commitUser, _ := user_model.GetUserByEmailContext(ctx, commit.Author.Email)
+					commitUser, _ := user_model.GetUserByEmail(ctx, commit.Author.Email)
 					if commitUser == nil || commitUser.ID != pr.Issue.Poster.ID {
 						authors = append(authors, authorString)
 					}

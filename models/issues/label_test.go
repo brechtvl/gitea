@@ -33,13 +33,13 @@ func TestLabel_TextColor(t *testing.T) {
 	assert.True(t, label.UseLightTextColor())
 }
 
-func TestLabel_Scope(t *testing.T) {
+func TestLabel_ExclusiveScope(t *testing.T) {
 	assert.NoError(t, unittest.PrepareTestDatabase())
 	label := unittest.AssertExistsAndLoadBean(t, &issues_model.Label{ID: 7})
-	assert.Equal(t, "scope::", label.Scope())
+	assert.Equal(t, "scope", label.ExclusiveScope())
 
 	label = unittest.AssertExistsAndLoadBean(t, &issues_model.Label{ID: 9})
-	assert.Equal(t, "scope::subscope::", label.Scope())
+	assert.Equal(t, "scope/subscope", label.ExclusiveScope())
 }
 
 func TestNewLabels(t *testing.T) {
@@ -274,6 +274,7 @@ func TestUpdateLabel(t *testing.T) {
 		Color:       "#ffff00",
 		Name:        "newLabelName",
 		Description: label.Description,
+		Exclusive:   false,
 	}
 	label.Color = update.Color
 	label.Name = update.Name
@@ -331,32 +332,32 @@ func TestNewIssueLabel(t *testing.T) {
 	unittest.CheckConsistencyFor(t, &issues_model.Issue{}, &issues_model.Label{})
 }
 
-func TestNewIssueLabelScoped(t *testing.T) {
+func TestNewIssueExclusiveLabel(t *testing.T) {
 	assert.NoError(t, unittest.PrepareTestDatabase())
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 18})
 	doer := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
-	unscopedLabel := unittest.AssertExistsAndLoadBean(t, &issues_model.Label{ID: 6})
-	scopedLabelA := unittest.AssertExistsAndLoadBean(t, &issues_model.Label{ID: 7})
-	scopedLabelB := unittest.AssertExistsAndLoadBean(t, &issues_model.Label{ID: 8})
+	otherLabel := unittest.AssertExistsAndLoadBean(t, &issues_model.Label{ID: 6})
+	exclusiveLabelA := unittest.AssertExistsAndLoadBean(t, &issues_model.Label{ID: 7})
+	exclusiveLabelB := unittest.AssertExistsAndLoadBean(t, &issues_model.Label{ID: 8})
 
-	// coexisting unscoped and scoped label
-	assert.NoError(t, issues_model.NewIssueLabel(issue, unscopedLabel, doer))
-	assert.NoError(t, issues_model.NewIssueLabel(issue, scopedLabelA, doer))
-	unittest.AssertExistsAndLoadBean(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: unscopedLabel.ID})
-	unittest.AssertExistsAndLoadBean(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: scopedLabelA.ID})
+	// coexisting regular and exclusive label
+	assert.NoError(t, issues_model.NewIssueLabel(issue, otherLabel, doer))
+	assert.NoError(t, issues_model.NewIssueLabel(issue, exclusiveLabelA, doer))
+	unittest.AssertExistsAndLoadBean(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: otherLabel.ID})
+	unittest.AssertExistsAndLoadBean(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: exclusiveLabelA.ID})
 
-	// scoped label replaces existing one
-	assert.NoError(t, issues_model.NewIssueLabel(issue, scopedLabelB, doer))
-	unittest.AssertExistsAndLoadBean(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: unscopedLabel.ID})
-	unittest.AssertExistsAndLoadBean(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: scopedLabelB.ID})
-	unittest.AssertNotExistsBean(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: scopedLabelA.ID})
+	// exclusive label replaces existing one
+	assert.NoError(t, issues_model.NewIssueLabel(issue, exclusiveLabelB, doer))
+	unittest.AssertExistsAndLoadBean(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: otherLabel.ID})
+	unittest.AssertExistsAndLoadBean(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: exclusiveLabelB.ID})
+	unittest.AssertNotExistsBean(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: exclusiveLabelA.ID})
 
-	// scoped label replaces existing one again
-	assert.NoError(t, issues_model.NewIssueLabel(issue, scopedLabelA, doer))
-	unittest.AssertExistsAndLoadBean(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: unscopedLabel.ID})
-	unittest.AssertExistsAndLoadBean(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: scopedLabelA.ID})
-	unittest.AssertNotExistsBean(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: scopedLabelB.ID})
+	// exclusive label replaces existing one again
+	assert.NoError(t, issues_model.NewIssueLabel(issue, exclusiveLabelA, doer))
+	unittest.AssertExistsAndLoadBean(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: otherLabel.ID})
+	unittest.AssertExistsAndLoadBean(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: exclusiveLabelA.ID})
+	unittest.AssertNotExistsBean(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: exclusiveLabelB.ID})
 }
 
 func TestNewIssueLabels(t *testing.T) {

@@ -106,7 +106,7 @@ func IsUserAllowedToUpdate(ctx context.Context, pull *issues_model.PullRequest, 
 		BaseBranch: pull.HeadBranch,
 	}
 
-	pb, err := git_model.GetFirstMatchProtectedBranchRule(ctx, pull.HeadRepoID, pull.HeadBranch)
+	pb, err := git_model.GetFirstMatchProtectedBranchRule(ctx, pr.BaseRepoID, pr.BaseBranch)
 	if err != nil {
 		return false, false, err
 	}
@@ -117,9 +117,6 @@ func IsUserAllowedToUpdate(ctx context.Context, pull *issues_model.PullRequest, 
 			return false, false, err
 		}
 		prUnit, err := pr.BaseRepo.GetUnit(ctx, unit.TypePullRequests)
-		if repo_model.IsErrUnitTypeNotExist(err) {
-			return false, false, nil
-		}
 		if err != nil {
 			if repo_model.IsErrUnitTypeNotExist(err) {
 				return false, false, nil

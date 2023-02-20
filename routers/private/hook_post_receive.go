@@ -196,14 +196,6 @@ func HookPostReceive(ctx *gitea_context.PrivateContext) {
 					})
 					return
 				}
-
-				if !baseRepo.AllowsPulls() {
-					// We can stop there's no need to go any further
-					ctx.JSON(http.StatusOK, private.HookPostReceiveResult{
-						RepoWasEmpty: wasEmpty,
-					})
-					return
-				}
 			}
 
 			// If our branch is the default branch of an unforked repo - there's no PR to create or refer to

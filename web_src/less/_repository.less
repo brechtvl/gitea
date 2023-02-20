@@ -106,10 +106,6 @@
         margin-right: 8.75px;
       }
 
-      .hide {
-        display: none !important;
-      }
-
       .dependency {
         padding: 0;
         white-space: nowrap;
@@ -1619,6 +1615,20 @@
       margin-right: .25rem;
     }
 
+    // Because the translations contain the <strong> we need to style with nth-of-type
+
+    .diff-detail-stats strong:nth-of-type(1) {
+      color: var(--color-yellow);
+    }
+
+    .diff-detail-stats strong:nth-of-type(2) {
+      color: var(--color-green);
+    }
+
+    .diff-detail-stats strong:nth-of-type(3) {
+      color: var(--color-red);
+    }
+
     .diff-detail-stats {
       @media (max-width: 480px) {
         font-size: 0;
@@ -2589,16 +2599,8 @@
   }
 }
 
-#issue-filters.hide {
-  display: none;
-}
-
 #issue-actions {
   margin-top: -1rem !important; // counteract padding from Semantic
-}
-
-#issue-actions.hide {
-  display: none;
 }
 
 .ui.menu .item > img:not(.ui) {
@@ -2765,7 +2767,7 @@
 }
 
 .edit-label.modal,
-.new-label.segment {
+.new-label.modal {
   .form {
     .column {
       padding-right: 0;
@@ -2777,12 +2779,9 @@
     }
 
     .color.picker.column {
-      width: auto;
-
-      .color-picker {
-        height: 35px;
-        width: auto;
-        padding-left: 30px;
+      display: flex;
+      .minicolors {
+        flex: 1;
       }
     }
 
@@ -2861,6 +2860,35 @@
   margin: 2px 0;
   display: inline-block !important;
   line-height: 1.3em; // there is a `font-size: 1.25em` for inside emoji, so here the line-height needs to be larger slightly
+}
+
+// Scoped labels with different colors on left and right, and slanted divider in the middle
+.scope-parent {
+  background: none !important;
+  padding: 0 !important;
+}
+
+.ui.label.scope-left {
+  border-bottom-right-radius: 0;
+  border-top-right-radius: 0;
+  padding-right: 0;
+  margin-right: 0;
+}
+
+.ui.label.scope-middle {
+  width: 12px;
+  border-radius: 0;
+  padding-left: 0;
+  padding-right: 0;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.ui.label.scope-right {
+  border-bottom-left-radius: 0;
+  border-top-left-radius: 0;
+  padding-left: 0;
+  margin-left: 0;
 }
 
 .repo-button-row {
@@ -3178,6 +3206,7 @@ td.blob-excerpt {
 }
 #diff-file-boxes {
   flex: 1;
+  max-width: 100%;
 }
 
 #diff-file-tree {
@@ -3284,6 +3313,10 @@ td.blob-excerpt {
       position: static;
     }
   }
+}
+
+.diff-file-body {
+  overflow-x: scroll;
 }
 
 .diff-stats-bar {
