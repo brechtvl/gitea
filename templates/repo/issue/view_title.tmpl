@@ -62,6 +62,8 @@
 				</span>
 			{{end}}
 			<span id="pull-desc-edit gt-hidden">
+				<!-- BLENDER: disable branch switching because accidentally merging main into release branch is too easy -->
+				<div class="gt-hidden">
 				<div class="ui floating filter dropdown">
 					<div class="ui basic small button">
 						<span class="text">{{.locale.Tr "repo.pulls.compare_compare"}}: {{$.HeadTarget}}</span>
@@ -88,6 +90,7 @@
 							{{end}}
 						</div>
 					</div>
+				</div>
 				</div>
 			</span>
 		{{end}}
