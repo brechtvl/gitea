@@ -181,31 +181,6 @@ func (r *RepositoryRestorer) GetLabels() ([]*base.Label, error) {
 	return labels, nil
 }
 
-// GetProjects returns projects
-func (r *RepositoryRestorer) GetProjects() ([]*base.Project, error) {
-	projects := make([]*base.Project, 0, 10)
-	p := filepath.Join(r.baseDir, "project.yml")
-	_, err := os.Stat(p)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	f, err := os.ReadFile(p)
-	if err != nil {
-		return nil, err
-	}
-
-	err = yaml.Unmarshal(f, &projects)
-	if err != nil {
-		fmt.Print(err)
-		return nil, err
-	}
-	return projects, nil
-}
-
 // GetIssues returns issues according start and limit
 func (r *RepositoryRestorer) GetIssues(page, perPage int) ([]*base.Issue, bool, error) {
 	issues := make([]*base.Issue, 0, 10)
@@ -223,7 +198,7 @@ func (r *RepositoryRestorer) GetIssues(page, perPage int) ([]*base.Issue, bool, 
 // GetComments returns comments according issueNumber
 func (r *RepositoryRestorer) GetComments(commentable base.Commentable) ([]*base.Comment, bool, error) {
 	comments := make([]*base.Comment, 0, 10)
-	p := filepath.Join(r.commentDir(), fmt.Sprintf("%d.yml", commentable.GetLocalIndex()))
+	p := filepath.Join(r.commentDir(), fmt.Sprintf("%d.yml", commentable.GetForeignIndex()))
 	_, err := os.Stat(p)
 	if err != nil {
 		if os.IsNotExist(err) {

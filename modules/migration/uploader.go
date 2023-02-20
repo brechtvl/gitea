@@ -13,7 +13,6 @@ type Uploader interface {
 	CreateReleases(releases ...*Release) error
 	SyncTags() error
 	CreateLabels(labels ...*Label) error
-	CreateProjects(projects ...*Project) error
 	CreateIssues(issues ...*Issue) error
 	CreateComments(comments ...*Comment) error
 	CreatePullRequests(prs ...*PullRequest) error

@@ -5,7 +5,6 @@ package models
 
 import (
 	"context"
-	"fmt"
 
 	"code.gitea.io/gitea/models/db"
 	issues_model "code.gitea.io/gitea/models/issues"
@@ -50,7 +49,7 @@ func InsertIssues(issues ...*issues_model.Issue) error {
 
 	for _, issue := range issues {
 		if err := insertIssue(ctx, issue); err != nil {
-			return fmt.Errorf("inserting issue %d: %w", issue.Index, err)
+			return err
 		}
 	}
 	return committer.Commit()
@@ -84,13 +83,6 @@ func insertIssue(ctx context.Context, issue *issues_model.Issue) error {
 		}
 	}
 
-	for _, assignee := range issue.Assignees {
-		assigneeIn := issues_model.IssueAssignees{AssigneeID: assignee.ID, IssueID: issue.ID}
-		if err := db.Insert(ctx, &assigneeIn); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -112,7 +104,7 @@ func InsertIssueComments(comments []*issues_model.Comment) error {
 	defer committer.Close()
 	for _, comment := range comments {
 		if _, err := db.GetEngine(ctx).NoAutoTime().Insert(comment); err != nil {
-			return fmt.Errorf("inserting comment: %w", err)
+			return err
 		}
 
 		for _, reaction := range comment.Reactions {

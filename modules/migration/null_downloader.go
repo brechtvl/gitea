@@ -41,11 +41,6 @@ func (n NullDownloader) GetLabels() ([]*Label, error) {
 	return nil, ErrNotSupported{Entity: "Labels"}
 }
 
-// GetProjects returns labels
-func (n NullDownloader) GetProjects() ([]*Project, error) {
-	return nil, ErrNotSupported{Entity: "Projects"}
-}
-
 // GetIssues returns issues according start and limit
 func (n NullDownloader) GetIssues(page, perPage int) ([]*Issue, bool, error) {
 	return nil, false, ErrNotSupported{Entity: "Issues"}

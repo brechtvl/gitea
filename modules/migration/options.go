@@ -32,7 +32,6 @@ type MigrateOptions struct {
 	Issues          bool
 	Milestones      bool
 	Labels          bool
-	Projects        bool
 	Releases        bool
 	Comments        bool
 	PullRequests    bool

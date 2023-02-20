@@ -18,7 +18,6 @@ import (
 	"code.gitea.io/gitea/models"
 	"code.gitea.io/gitea/models/db"
 	issues_model "code.gitea.io/gitea/models/issues"
-	project_model "code.gitea.io/gitea/models/project"
 	repo_model "code.gitea.io/gitea/models/repo"
 	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/git"
@@ -45,7 +44,6 @@ type GiteaLocalUploader struct {
 	repoName       string
 	repo           *repo_model.Repository
 	labels         map[string]*issues_model.Label
-	projects       map[string]*project_model.Project
 	milestones     map[string]int64
 	issues         map[int64]*issues_model.Issue
 	gitRepo        *git.Repository
@@ -64,7 +62,6 @@ func NewGiteaLocalUploader(ctx context.Context, doer *user_model.User, repoOwner
 		repoOwner:   repoOwner,
 		repoName:    repoName,
 		labels:      make(map[string]*issues_model.Label),
-		projects:    make(map[string]*project_model.Project),
 		milestones:  make(map[string]int64),
 		issues:      make(map[int64]*issues_model.Issue),
 		prHeadCache: make(map[string]string),
@@ -84,8 +81,6 @@ func (g *GiteaLocalUploader) MaxBatchInsertSize(tp string) int {
 		return db.MaxBatchInsertSize(new(issues_model.Milestone))
 	case "label":
 		return db.MaxBatchInsertSize(new(issues_model.Label))
-	case "project":
-		return db.MaxBatchInsertSize(new(project_model.Project))
 	case "release":
 		return db.MaxBatchInsertSize(new(repo_model.Release))
 	case "pullrequest":
@@ -247,38 +242,6 @@ func (g *GiteaLocalUploader) CreateLabels(labels ...*base.Label) error {
 	return nil
 }
 
-// CreateProjects creates projects
-func (g *GiteaLocalUploader) CreateProjects(projects ...*base.Project) error {
-	for _, project := range projects {
-
-		dbProject := &project_model.Project{
-			RepoID:      g.repo.ID,
-			Title:       project.Title,
-			Description: project.Description,
-		}
-
-		switch project.Type {
-		case "individual":
-			dbProject.Type = project_model.TypeIndividual
-		case "repository":
-			dbProject.Type = project_model.TypeRepository
-		case "organization":
-			dbProject.Type = project_model.TypeOrganization
-		default:
-			return fmt.Errorf("project %q has unknown type %q", project.Title, project.Type)
-		}
-
-		err := project_model.NewProject(dbProject)
-		if err != nil {
-			return err
-		}
-
-		g.projects[dbProject.Title] = dbProject
-	}
-
-	return nil
-}
-
 // CreateReleases creates releases
 func (g *GiteaLocalUploader) CreateReleases(releases ...*base.Release) error {
 	rels := make([]*repo_model.Release, 0, len(releases))
@@ -394,9 +357,6 @@ func (g *GiteaLocalUploader) SyncTags() error {
 // CreateIssues creates issues
 func (g *GiteaLocalUploader) CreateIssues(issues ...*base.Issue) error {
 	iss := make([]*issues_model.Issue, 0, len(issues))
-
-	usernameCache := NewUsernameCache()
-
 	for _, issue := range issues {
 		var labels []*issues_model.Label
 		for _, label := range issue.Labels {
@@ -462,30 +422,6 @@ func (g *GiteaLocalUploader) CreateIssues(issues ...*base.Issue) error {
 			}
 			is.Reactions = append(is.Reactions, &res)
 		}
-
-		// add assignees
-		for _, assigneeUsername := range issue.Assignees {
-			assigneeID, err := usernameCache.FindUserIDByName(g.ctx, assigneeUsername)
-			if err != nil {
-				log.Debug("Assignees of issue %d: Unable to get ID of user name %s: %v", issue.Number, assigneeUsername, err)
-				continue
-			}
-			if assigneeID == 0 {
-				continue
-			}
-
-			assignee, err := usernameCache.GetUserByID(g.ctx, assigneeID)
-			if err != nil {
-				log.Error("Assignees of issue %d: Unable to get user with ID %d: %v", issue.Number, assigneeID, err)
-				continue
-			}
-			if assignee == nil {
-				continue
-			}
-
-			is.Assignees = append(is.Assignees, assignee)
-		}
-
 		iss = append(iss, &is)
 	}
 
@@ -496,36 +432,6 @@ func (g *GiteaLocalUploader) CreateIssues(issues ...*base.Issue) error {
 
 		for _, is := range iss {
 			g.issues[is.Index] = is
-		}
-	}
-
-	// Subscriber.
-	// Only do it after the insert to the database, so that the issue ID is known.
-	for _, issue := range issues {
-		issueID := g.issues[issue.Number].ID
-		issueWatchers := make([]interface{}, 0)
-
-		for _, subscriberUsername := range issue.Subscribers {
-			subscriberID, err := usernameCache.FindUserIDByName(g.ctx, subscriberUsername)
-			if err != nil {
-				log.Debug("Subscribers of issue %d: Unable to get ID of user name %s: %v", issue.Number, subscriberUsername, err)
-				continue
-			}
-
-			if subscriberID == 0 {
-				continue
-			}
-
-			issueWatch := issues_model.IssueWatch{
-				UserID:     subscriberID,
-				IssueID:    issueID,
-				IsWatching: true,
-			}
-			issueWatchers = append(issueWatchers, &issueWatch)
-		}
-
-		if err := db.Insert(g.ctx, issueWatchers...); err != nil {
-			return err
 		}
 	}
 

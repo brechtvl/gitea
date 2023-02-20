@@ -24,7 +24,6 @@ type Issue struct {
 	Labels       []*Label          `json:"labels"`
 	Reactions    []*Reaction       `json:"reactions"`
 	Assignees    []string          `json:"assignees"`
-	Subscribers  []string          `json:"subscribers"`
 	ForeignIndex int64             `json:"foreign_id"`
 	Context      DownloaderContext `yaml:"-"`
 }
