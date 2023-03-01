@@ -174,21 +174,6 @@ func (q *PersistableChannelUniqueQueue) Has(data Data) (bool, error) {
 	if err != nil || has {
 		return has, err
 	}
-
-	// BLENDER: workaround for problem where on ungraceful shutdown, the persistent
-	// queue on disk contains PRs to be checked for conflicts. On restart these will
-	// be laoded into q.internal, but seemingly not start any work.
-	//
-	// At the same time InitializePullRequests will also add any PRs waiting for
-	// conflict checking to q.channelQueue, which does start work but does not write
-	// out its status because this Has() check returns true.
-	//
-	// Workaround is to just not check the persistent queue since it seems unnecessary
-	// for this particular case.
-	if q.Name() == "pr_patch_checker" {
-		return false, nil
-	}
-
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	if q.internal == nil {
