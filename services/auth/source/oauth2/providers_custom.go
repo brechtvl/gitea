@@ -5,8 +5,8 @@ package oauth2
 
 import (
 	"code.gitea.io/gitea/modules/setting"
+	"code.gitea.io/gitea/services/auth/source/oauth2/blenderid"
 
-	"future.projects.blender.org/blender-migration/goth-provider-blenderid"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/providers/azureadv2"
 	"github.com/markbates/goth/providers/gitea"

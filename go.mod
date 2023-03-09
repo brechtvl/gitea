@@ -6,7 +6,6 @@ require (
 	code.gitea.io/actions-proto-go v0.2.0
 	code.gitea.io/gitea-vet v0.2.2
 	code.gitea.io/sdk/gitea v0.15.1
-	future.projects.blender.org/blender-migration/goth-provider-blenderid v0.0.0-20220915005226-35da2291fb9b
 	codeberg.org/gusted/mcaptcha v0.0.0-20220723083913-4f3072e1d570
 	gitea.com/go-chi/binding v0.0.0-20221013104517-b29891619681
 	gitea.com/go-chi/cache v0.2.0
