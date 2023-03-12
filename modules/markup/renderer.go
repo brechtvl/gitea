@@ -283,6 +283,11 @@ type ErrUnsupportedRenderExtension struct {
 	Extension string
 }
 
+func IsErrUnsupportedRenderExtension(err error) bool {
+	_, ok := err.(ErrUnsupportedRenderExtension)
+	return ok
+}
+
 func (err ErrUnsupportedRenderExtension) Error() string {
 	return fmt.Sprintf("Unsupported render extension: %s", err.Extension)
 }
@@ -316,4 +321,16 @@ func IsMarkupFile(name, markup string) bool {
 		return parser.Name() == markup
 	}
 	return false
+}
+
+func PreviewableExtensions() []string {
+	extensions := []string{}
+
+	for _, fileMode := range setting.Repository.Editor.PreviewableFileModes {
+		if renderer, ok := renderers[fileMode]; ok {
+			extensions = append(extensions, renderer.Extensions()...)
+		}
+	}
+
+	return extensions
 }
