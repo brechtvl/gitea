@@ -37,6 +37,7 @@ import (
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/markup"
 	"code.gitea.io/gitea/modules/markup/markdown"
+	repo_module "code.gitea.io/gitea/modules/repository"
 	"code.gitea.io/gitea/modules/setting"
 	api "code.gitea.io/gitea/modules/structs"
 	"code.gitea.io/gitea/modules/templates/vars"
@@ -241,7 +242,7 @@ func issues(ctx *context.Context, milestoneID, projectID int64, isPullOption uti
 	pager := context.NewPagination(total, setting.UI.IssuePagingNum, page, 5)
 
 	var mileIDs []int64
-	if milestoneID > 0 {
+	if milestoneID > 0 || milestoneID == db.NoConditionID { // -1 to get those issues which have no any milestone assigned
 		mileIDs = []int64{milestoneID}
 	}
 
@@ -433,7 +434,7 @@ func Issues(ctx *context.Context) {
 		}
 		ctx.Data["Title"] = ctx.Tr("repo.issues")
 		ctx.Data["PageIsIssueList"] = true
-		ctx.Data["NewIssueChooseTemplate"] = ctx.HasIssueTemplatesOrContactLinks()
+		ctx.Data["NewIssueChooseTemplate"] = issue_service.HasTemplatesOrContactLinks(ctx.Repo.Repository, ctx.Repo.GitRepo)
 	}
 
 	issues(ctx, ctx.FormInt64("milestone"), ctx.FormInt64("project"), util.OptionalBoolOf(isPullList))
@@ -441,20 +442,37 @@ func Issues(ctx *context.Context) {
 		return
 	}
 
-	var err error
-	// Get milestones
-	ctx.Data["Milestones"], _, err = issues_model.GetMilestones(issues_model.GetMilestonesOption{
-		RepoID: ctx.Repo.Repository.ID,
-		State:  api.StateType(ctx.FormString("state")),
-	})
-	if err != nil {
-		ctx.ServerError("GetAllRepoMilestones", err)
+	renderMilestones(ctx)
+	if ctx.Written() {
 		return
 	}
 
 	ctx.Data["CanWriteIssuesOrPulls"] = ctx.Repo.CanWriteIssuesOrPulls(isPullList)
 
 	ctx.HTML(http.StatusOK, tplIssues)
+}
+
+func renderMilestones(ctx *context.Context) {
+	// Get milestones
+	milestones, _, err := issues_model.GetMilestones(issues_model.GetMilestonesOption{
+		RepoID: ctx.Repo.Repository.ID,
+		State:  api.StateAll,
+	})
+	if err != nil {
+		ctx.ServerError("GetAllRepoMilestones", err)
+		return
+	}
+
+	openMilestones, closedMilestones := issues_model.MilestoneList{}, issues_model.MilestoneList{}
+	for _, milestone := range milestones {
+		if milestone.IsClosed {
+			closedMilestones = append(closedMilestones, milestone)
+		} else {
+			openMilestones = append(openMilestones, milestone)
+		}
+	}
+	ctx.Data["OpenMilestones"] = openMilestones
+	ctx.Data["ClosedMilestones"] = closedMilestones
 }
 
 // RetrieveRepoMilestonesAndAssignees find all the milestones and assignees of a repository
@@ -847,7 +865,7 @@ func setTemplateIfExists(ctx *context.Context, ctxDataKey string, possibleFiles 
 func NewIssue(ctx *context.Context) {
 	ctx.Data["Title"] = ctx.Tr("repo.issues.new")
 	ctx.Data["PageIsIssueList"] = true
-	ctx.Data["NewIssueChooseTemplate"] = ctx.HasIssueTemplatesOrContactLinks()
+	ctx.Data["NewIssueChooseTemplate"] = issue_service.HasTemplatesOrContactLinks(ctx.Repo.Repository, ctx.Repo.GitRepo)
 	ctx.Data["PullRequestWorkInProgressPrefixes"] = setting.Repository.PullRequest.WorkInProgressPrefixes
 	title := ctx.FormString("title")
 	ctx.Data["TitleQuery"] = title
@@ -889,7 +907,7 @@ func NewIssue(ctx *context.Context) {
 
 	RetrieveRepoMetas(ctx, ctx.Repo.Repository, false)
 
-	_, templateErrs := ctx.IssueTemplatesErrorsFromDefaultBranch()
+	_, templateErrs := issue_service.GetTemplatesFromDefaultBranch(ctx.Repo.Repository, ctx.Repo.GitRepo)
 	if errs := setTemplateIfExists(ctx, issueTemplateKey, IssueTemplateCandidates); len(errs) > 0 {
 		for k, v := range errs {
 			templateErrs[k] = v
@@ -937,20 +955,20 @@ func NewIssueChooseTemplate(ctx *context.Context) {
 	ctx.Data["Title"] = ctx.Tr("repo.issues.new")
 	ctx.Data["PageIsIssueList"] = true
 
-	issueTemplates, errs := ctx.IssueTemplatesErrorsFromDefaultBranch()
+	issueTemplates, errs := issue_service.GetTemplatesFromDefaultBranch(ctx.Repo.Repository, ctx.Repo.GitRepo)
 	ctx.Data["IssueTemplates"] = issueTemplates
 
 	if len(errs) > 0 {
 		ctx.Flash.Warning(renderErrorOfTemplates(ctx, errs), true)
 	}
 
-	if !ctx.HasIssueTemplatesOrContactLinks() {
+	if !issue_service.HasTemplatesOrContactLinks(ctx.Repo.Repository, ctx.Repo.GitRepo) {
 		// The "issues/new" and "issues/new/choose" share the same query parameters "project" and "milestone", if no template here, just redirect to the "issues/new" page with these parameters.
 		ctx.Redirect(fmt.Sprintf("%s/issues/new?%s", ctx.Repo.Repository.Link(), ctx.Req.URL.RawQuery), http.StatusSeeOther)
 		return
 	}
 
-	issueConfig, err := ctx.IssueConfigFromDefaultBranch()
+	issueConfig, err := issue_service.GetTemplateConfigFromDefaultBranch(ctx.Repo.Repository, ctx.Repo.GitRepo)
 	ctx.Data["IssueConfig"] = issueConfig
 	ctx.Data["IssueConfigError"] = err // ctx.Flash.Err makes problems here
 
@@ -1088,7 +1106,7 @@ func NewIssuePost(ctx *context.Context) {
 	form := web.GetForm(ctx).(*forms.CreateIssueForm)
 	ctx.Data["Title"] = ctx.Tr("repo.issues.new")
 	ctx.Data["PageIsIssueList"] = true
-	ctx.Data["NewIssueChooseTemplate"] = ctx.HasIssueTemplatesOrContactLinks()
+	ctx.Data["NewIssueChooseTemplate"] = issue_service.HasTemplatesOrContactLinks(ctx.Repo.Repository, ctx.Repo.GitRepo)
 	ctx.Data["PullRequestWorkInProgressPrefixes"] = setting.Repository.PullRequest.WorkInProgressPrefixes
 	ctx.Data["IsAttachmentEnabled"] = setting.Attachment.Enabled
 	upload.AddUploadContext(ctx, "comment")
@@ -1282,7 +1300,7 @@ func ViewIssue(ctx *context.Context) {
 			return
 		}
 		ctx.Data["PageIsIssueList"] = true
-		ctx.Data["NewIssueChooseTemplate"] = ctx.HasIssueTemplatesOrContactLinks()
+		ctx.Data["NewIssueChooseTemplate"] = issue_service.HasTemplatesOrContactLinks(ctx.Repo.Repository, ctx.Repo.GitRepo)
 	}
 
 	if issue.IsPull && !ctx.Repo.CanRead(unit.TypeIssues) {
@@ -1560,7 +1578,7 @@ func ViewIssue(ctx *context.Context) {
 					return
 				}
 			}
-		} else if comment.Type == issues_model.CommentTypeCode || comment.Type == issues_model.CommentTypeReview || comment.Type == issues_model.CommentTypeDismissReview {
+		} else if comment.Type.HasContentSupport() {
 			comment.RenderedContent, err = markdown.RenderString(&markup.RenderContext{
 				URLPrefix: ctx.Repo.RepoLink,
 				Metas:     ctx.Repo.Repository.ComposeMetas(),
@@ -1624,8 +1642,10 @@ func ViewIssue(ctx *context.Context) {
 			comment.Type == issues_model.CommentTypeStopTracking {
 			// drop error since times could be pruned from DB..
 			_ = comment.LoadTime()
-		} else if comment.Type == issues_model.CommentTypeClose {
-			// record ID of latest closed comment.
+		}
+
+		if comment.Type == issues_model.CommentTypeClose || comment.Type == issues_model.CommentTypeMergePull {
+			// record ID of the latest closed/merged comment.
 			// if PR is closed, the comments whose type is CommentTypePullRequestPush(29) after latestCloseCommentID won't be rendered.
 			latestCloseCommentID = comment.ID
 		}
@@ -2698,7 +2718,7 @@ func UpdateIssueStatus(ctx *context.Context) {
 			if err := issue_service.ChangeStatus(issue, ctx.Doer, "", isClosed); err != nil {
 				if issues_model.IsErrDependenciesLeft(err) {
 					ctx.JSON(http.StatusPreconditionFailed, map[string]interface{}{
-						"error": "cannot close this issue because it still has open dependencies",
+						"error": ctx.Tr("repo.issues.dependency.issue_batch_close_blocked", issue.Index),
 					})
 					return
 				}
@@ -2776,7 +2796,8 @@ func NewComment(ctx *context.Context) {
 				pr, err = issues_model.GetUnmergedPullRequest(ctx, pull.HeadRepoID, pull.BaseRepoID, pull.HeadBranch, pull.BaseBranch, pull.Flow)
 				if err != nil {
 					if !issues_model.IsErrPullRequestNotExist(err) {
-						ctx.ServerError("GetUnmergedPullRequest", err)
+						ctx.Flash.Error(ctx.Tr("repo.issues.dependency.pr_close_blocked"))
+						ctx.Redirect(fmt.Sprintf("%s/pulls/%d", ctx.Repo.RepoLink, pull.Index))
 						return
 					}
 				}
@@ -2785,6 +2806,57 @@ func NewComment(ctx *context.Context) {
 				if pr == nil {
 					issue.PullRequest.HeadCommitID = ""
 					pull_service.AddToTaskQueue(issue.PullRequest)
+				}
+
+				// check whether the ref of PR <refs/pulls/pr_index/head> in base repo is consistent with the head commit of head branch in the head repo
+				// get head commit of PR
+				prHeadRef := pull.GetGitRefName()
+				if err := pull.LoadBaseRepo(ctx); err != nil {
+					ctx.ServerError("Unable to load base repo", err)
+					return
+				}
+				prHeadCommitID, err := git.GetFullCommitID(ctx, pull.BaseRepo.RepoPath(), prHeadRef)
+				if err != nil {
+					ctx.ServerError("Get head commit Id of pr fail", err)
+					return
+				}
+
+				// get head commit of branch in the head repo
+				if err := pull.LoadHeadRepo(ctx); err != nil {
+					ctx.ServerError("Unable to load head repo", err)
+					return
+				}
+				if ok := git.IsBranchExist(ctx, pull.HeadRepo.RepoPath(), pull.BaseBranch); !ok {
+					// todo localize
+					ctx.Flash.Error("The origin branch is delete, cannot reopen.")
+					ctx.Redirect(fmt.Sprintf("%s/pulls/%d", ctx.Repo.RepoLink, pull.Index))
+					return
+				}
+				headBranchRef := pull.GetGitHeadBranchRefName()
+				headBranchCommitID, err := git.GetFullCommitID(ctx, pull.HeadRepo.RepoPath(), headBranchRef)
+				if err != nil {
+					ctx.ServerError("Get head commit Id of head branch fail", err)
+					return
+				}
+
+				err = pull.LoadIssue(ctx)
+				if err != nil {
+					ctx.ServerError("load the issue of pull request error", err)
+					return
+				}
+
+				if prHeadCommitID != headBranchCommitID {
+					// force push to base repo
+					err := git.Push(ctx, pull.HeadRepo.RepoPath(), git.PushOptions{
+						Remote: pull.BaseRepo.RepoPath(),
+						Branch: pull.HeadBranch + ":" + prHeadRef,
+						Force:  true,
+						Env:    repo_module.InternalPushingEnvironment(pull.Issue.Poster, pull.BaseRepo),
+					})
+					if err != nil {
+						ctx.ServerError("force push error", err)
+						return
+					}
 				}
 			}
 
@@ -2814,6 +2886,7 @@ func NewComment(ctx *context.Context) {
 					log.Trace("Issue [%d] status changed to closed: %v", issue.ID, issue.IsClosed)
 				}
 			}
+
 		}
 
 		// Redirect to comment hashtag if there is any actual content.
@@ -2860,7 +2933,7 @@ func UpdateCommentContent(ctx *context.Context) {
 		return
 	}
 
-	if comment.Type != issues_model.CommentTypeComment && comment.Type != issues_model.CommentTypeReview && comment.Type != issues_model.CommentTypeCode {
+	if !comment.Type.HasContentSupport() {
 		ctx.Error(http.StatusNoContent)
 		return
 	}
@@ -2924,7 +2997,7 @@ func DeleteComment(ctx *context.Context) {
 	if !ctx.IsSigned || (ctx.Doer.ID != comment.PosterID && !ctx.Repo.CanWriteIssuesOrPulls(comment.Issue.IsPull)) {
 		ctx.Error(http.StatusForbidden)
 		return
-	} else if comment.Type != issues_model.CommentTypeComment && comment.Type != issues_model.CommentTypeCode {
+	} else if !comment.Type.HasContentSupport() {
 		ctx.Error(http.StatusNoContent)
 		return
 	}
@@ -3070,7 +3143,7 @@ func ChangeCommentReaction(ctx *context.Context) {
 		return
 	}
 
-	if comment.Type != issues_model.CommentTypeComment && comment.Type != issues_model.CommentTypeCode && comment.Type != issues_model.CommentTypeReview {
+	if !comment.Type.HasContentSupport() {
 		ctx.Error(http.StatusNoContent)
 		return
 	}
@@ -3186,15 +3259,19 @@ func GetCommentAttachments(ctx *context.Context) {
 		ctx.NotFoundOrServerError("GetCommentByID", issues_model.IsErrCommentNotExist, err)
 		return
 	}
+
+	if !comment.Type.HasAttachmentSupport() {
+		ctx.ServerError("GetCommentAttachments", fmt.Errorf("comment type %v does not support attachments", comment.Type))
+		return
+	}
+
 	attachments := make([]*api.Attachment, 0)
-	if comment.Type == issues_model.CommentTypeComment {
-		if err := comment.LoadAttachments(ctx); err != nil {
-			ctx.ServerError("LoadAttachments", err)
-			return
-		}
-		for i := 0; i < len(comment.Attachments); i++ {
-			attachments = append(attachments, convert.ToAttachment(comment.Attachments[i]))
-		}
+	if err := comment.LoadAttachments(ctx); err != nil {
+		ctx.ServerError("LoadAttachments", err)
+		return
+	}
+	for i := 0; i < len(comment.Attachments); i++ {
+		attachments = append(attachments, convert.ToAttachment(comment.Attachments[i]))
 	}
 	ctx.JSON(http.StatusOK, attachments)
 }

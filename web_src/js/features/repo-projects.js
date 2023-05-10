@@ -1,12 +1,12 @@
 import $ from 'jquery';
-import {useLightTextOnBackground} from '../utils.js';
+import {useLightTextOnBackground, hexToRGBColor} from '../utils/color.js';
 
 const {csrfToken} = window.config;
 
 function updateIssueCount(cards) {
   const parent = cards.parentElement;
   const cnt = parent.getElementsByClassName('board-card').length;
-  parent.getElementsByClassName('board-card-cnt')[0].innerText = cnt;
+  parent.getElementsByClassName('board-card-cnt')[0].textContent = cnt;
 }
 
 function moveIssue({item, from, to, oldIndex}) {
@@ -36,7 +36,7 @@ function moveIssue({item, from, to, oldIndex}) {
 }
 
 async function initRepoProjectSortable() {
-  const els = document.querySelectorAll('#project-board > .board');
+  const els = document.querySelectorAll('#project-board > .board.sortable');
   if (!els.length) return;
 
   const {Sortable} = await import(/* webpackChunkName: "sortable" */'sortablejs');
@@ -129,12 +129,7 @@ export function initRepoProject() {
   $('.default-project-board-modal').each(function () {
     const boardColumn = $(this).closest('.board-column');
     const showButton = $(boardColumn).find('.default-project-board-show');
-    const commitButton = $(this).find('.default-project-board-button');
-
-    if ($(showButton).data('type') === 'unset_default') {
-      $(commitButton).removeClass('primary');
-      $(commitButton).addClass('red');
-    }
+    const commitButton = $(this).find('.actions > .ok.button');
 
     $(commitButton).on('click', (e) => {
       e.preventDefault();
@@ -152,12 +147,16 @@ export function initRepoProject() {
     });
   });
 
-  $('.delete-project-board').each(function () {
-    $(this).click(function (e) {
+  $('.show-delete-column-modal').each(function () {
+    const deleteColumnModal = $(`${$(this).attr('data-modal')}`);
+    const deleteColumnButton = deleteColumnModal.find('.actions > .ok.button');
+    const deleteUrl = $(this).attr('data-url');
+
+    deleteColumnButton.on('click', (e) => {
       e.preventDefault();
 
       $.ajax({
-        url: $(this).data('url'),
+        url: deleteUrl,
         headers: {
           'X-Csrf-Token': csrfToken,
         },
@@ -169,7 +168,7 @@ export function initRepoProject() {
     });
   });
 
-  $('#new_board_submit').click(function (e) {
+  $('#new_board_submit').on('click', function (e) {
     e.preventDefault();
 
     const boardTitle = $('#new_board');
@@ -191,7 +190,8 @@ export function initRepoProject() {
 }
 
 function setLabelColor(label, color) {
-  if (useLightTextOnBackground(color)) {
+  const [r, g, b] = hexToRGBColor(color);
+  if (useLightTextOnBackground(r, g, b)) {
     label.removeClass('dark-label').addClass('light-label');
   } else {
     label.removeClass('light-label').addClass('dark-label');
