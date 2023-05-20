@@ -53,6 +53,7 @@ func renderCommitRights(ctx *context.Context) bool {
 	}
 	ctx.Data["CanCommitToBranch"] = canCommitToBranch
 	ctx.Data["CanCreatePullRequest"] = ctx.Repo.Repository.UnitEnabled(ctx, unit.TypePullRequests) || canCreateBasePullRequest(ctx)
+	ctx.Data["IsForkDefaultBranch"] = canCreateBasePullRequest(ctx) && ctx.Repo.BranchName == ctx.Repo.Repository.BaseRepo.DefaultBranch
 
 	return canCommitToBranch.CanCommitToBranch
 }
@@ -62,13 +63,13 @@ func redirectToPullRequest(ctx *context.Context, newBranchName string) bool {
 	repo := ctx.Repo.Repository
 	baseBranch := util.PathEscapeSegments(ctx.Repo.BranchName)
 	headBranch := util.PathEscapeSegments(newBranchName)
-	if !repo.UnitEnabled(ctx, unit.TypePullRequests) {
-		if !canCreateBasePullRequest(ctx) {
-			return false
-		}
+	if repo.UnitEnabled(ctx, unit.TypePullRequests) {
+	} else if canCreateBasePullRequest(ctx) {
 		baseBranch = util.PathEscapeSegments(repo.BaseRepo.DefaultBranch)
 		headBranch = util.PathEscapeSegments(repo.Owner.Name) + "/" + util.PathEscapeSegments(repo.Name) + ":" + headBranch
 		repo = repo.BaseRepo
+	} else {
+		return false
 	}
 	ctx.Redirect(repo.Link() + "/compare/" + baseBranch + "..." + headBranch)
 	return true
@@ -172,7 +173,7 @@ func editFile(ctx *context.Context, isNewFile bool) {
 	ctx.Data["BranchLink"] = ctx.Repo.RepoLink + "/src/" + ctx.Repo.BranchNameSubURL()
 	ctx.Data["commit_summary"] = ""
 	ctx.Data["commit_message"] = ""
-	if canCommit {
+	if canCommit && !canCreateBasePullRequest(ctx) {
 		ctx.Data["commit_choice"] = frmCommitChoiceDirect
 	} else {
 		ctx.Data["commit_choice"] = frmCommitChoiceNewBranch
@@ -421,7 +422,7 @@ func DeleteFile(ctx *context.Context) {
 	ctx.Data["commit_summary"] = ""
 	ctx.Data["commit_message"] = ""
 	ctx.Data["last_commit"] = ctx.Repo.CommitID
-	if canCommit {
+	if canCommit && !canCreateBasePullRequest(ctx) {
 		ctx.Data["commit_choice"] = frmCommitChoiceDirect
 	} else {
 		ctx.Data["commit_choice"] = frmCommitChoiceNewBranch
@@ -581,7 +582,7 @@ func UploadFile(ctx *context.Context) {
 	ctx.Data["BranchLink"] = ctx.Repo.RepoLink + "/src/" + ctx.Repo.BranchNameSubURL()
 	ctx.Data["commit_summary"] = ""
 	ctx.Data["commit_message"] = ""
-	if canCommit {
+	if canCommit && !canCreateBasePullRequest(ctx) {
 		ctx.Data["commit_choice"] = frmCommitChoiceDirect
 	} else {
 		ctx.Data["commit_choice"] = frmCommitChoiceNewBranch
