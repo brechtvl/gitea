@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"code.gitea.io/gitea/models"
 	"code.gitea.io/gitea/models/db"
@@ -43,17 +44,50 @@ var (
 )
 
 // AddToTaskQueue adds itself to pull request test task queue.
-func AddToTaskQueue(pr *issues_model.PullRequest) {
+func setStatusChecking(pr *issues_model.PullRequest) bool {
 	pr.Status = issues_model.PullRequestStatusChecking
 	err := pr.UpdateColsIfNotMerged(db.DefaultContext, "status")
 	if err != nil {
 		log.Error("AddToTaskQueue(%-v).UpdateCols.(add to queue): %v", pr, err)
-		return
+		return false
 	}
+	return true
+}
+
+func addToTaskQueue(pr *issues_model.PullRequest) {
 	log.Trace("Adding %-v to the test pull requests queue", pr)
-	err = prPatchCheckerQueue.Push(strconv.FormatInt(pr.ID, 10))
+	err := prPatchCheckerQueue.Push(strconv.FormatInt(pr.ID, 10))
 	if err != nil && err != queue.ErrAlreadyInQueue {
 		log.Error("Error adding %-v to the test pull requests queue: %v", pr, err)
+	}
+}
+
+func AddToTaskQueueOnView(pr *issues_model.PullRequest) {
+	if pr.Status == issues_model.PullRequestStatusChecking {
+		addToTaskQueue(pr)
+	}
+}
+
+func AddToTaskQueueOnBaseUpdate(ctx context.Context, pr *issues_model.PullRequest) {
+	// Blender: don't immediately check PRs older than a week, instead check when
+	// the page is loaded.
+	if !setStatusChecking(pr) {
+		return
+	}
+	if err := pr.LoadIssue(ctx); err != nil {
+		return
+	}
+	if pr.Issue.UpdatedUnix.AddDuration(24*time.Hour) < timeutil.TimeStampNow() {
+		log.Trace("Delaying %-v patch checking because it was not updated recently", pr)
+		return
+	}
+
+	addToTaskQueue(pr)
+}
+
+func AddToTaskQueue(pr *issues_model.PullRequest) {
+	if setStatusChecking(pr) {
+		addToTaskQueue(pr)
 	}
 }
 

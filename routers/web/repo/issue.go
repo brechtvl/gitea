@@ -1666,6 +1666,8 @@ func ViewIssue(ctx *context.Context) {
 		canDelete := false
 		ctx.Data["AllowMerge"] = false
 
+		pull_service.AddToTaskQueueOnView(pull)
+
 		if ctx.IsSigned {
 			if err := pull.LoadHeadRepo(ctx); err != nil {
 				log.Error("LoadHeadRepo: %v", err)
