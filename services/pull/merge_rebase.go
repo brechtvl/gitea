@@ -12,20 +12,18 @@ import (
 	"code.gitea.io/gitea/modules/log"
 )
 
-// Compose message to amend commit in rebase merge of pull request.
+// getRebaseAmendMessage composes the message to amend commits in rebase merge of a pull request.
 func getRebaseAmendMessage(ctx *mergeContext, baseGitRepo *git.Repository) (message string, err error) {
 	// Get existing commit message.
-	var commitMessage strings.Builder
-	cmd := git.NewCommand(ctx, "show", "--format=%B", "-s")
-	if err := cmd.Run(&git.RunOpts{Dir: ctx.tmpBasePath, Stdout: &commitMessage}); err != nil {
+	commitMessage, _, err := git.NewCommand(ctx, "show", "--format=%B", "-s").RunStdString(&git.RunOpts{Dir: ctx.tmpBasePath})
+	if err != nil {
 		return "", err
 	}
 
-	commitTitle, commitBody, _ := strings.Cut(commitMessage.String(), "\n")
-	commitTitle = strings.TrimSpace(commitTitle)
-	commitBody = strings.TrimSpace(commitBody)
+	commitTitle, commitBody, _ := strings.Cut(commitMessage, "\n")
+	extraVars := map[string]string{"CommitTitle": strings.TrimSpace(commitTitle), "CommitBody": strings.TrimSpace(commitBody)}
 
-	message, body, err := getMergeMessage(ctx, baseGitRepo, ctx.pr, repo_model.MergeStyleRebase, commitTitle, commitBody)
+	message, body, err := getMergeMessage(ctx, baseGitRepo, ctx.pr, repo_model.MergeStyleRebase, extraVars)
 	if err != nil || message == "" {
 		return "", err
 	}
@@ -74,8 +72,7 @@ func doMergeRebaseFastForward(ctx *mergeContext) error {
 	}
 
 	if newMessage != "" {
-		cmdAmend := git.NewCommand(ctx, "commit", "--amend").AddOptionFormat("--message=%s", newMessage)
-		if err := cmdAmend.Run(&git.RunOpts{Dir: ctx.tmpBasePath}); err != nil {
+		if err := git.NewCommand(ctx, "commit", "--amend").AddOptionFormat("--message=%s", newMessage).Run(&git.RunOpts{Dir: ctx.tmpBasePath}); err != nil {
 			log.Error("Unable to amend commit message: %v", err)
 			return err
 		}
