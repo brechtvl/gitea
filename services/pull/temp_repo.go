@@ -47,7 +47,7 @@ func (ctx *prContext) RunOpts() *git.RunOpts {
 
 // createTemporaryRepoForPR creates a temporary repo with "base" for pr.BaseBranch and "tracking" for  pr.HeadBranch
 // it also create a second base branch called "original_base"
-func createTemporaryRepoForPR(ctx context.Context, pr *issues_model.PullRequest) (prCtx *prContext, cancel context.CancelFunc, err error) {
+func createTemporaryRepoForPR(ctx context.Context, pr *issues_model.PullRequest, skipHeadRepoFetch bool) (prCtx *prContext, cancel context.CancelFunc, err error) {
 	if err := pr.LoadHeadRepo(ctx); err != nil {
 		log.Error("%-v LoadHeadRepo: %v", pr, err)
 		return nil, nil, fmt.Errorf("%v LoadHeadRepo: %w", pr, err)
@@ -171,7 +171,15 @@ func createTemporaryRepoForPR(ctx context.Context, pr *issues_model.PullRequest)
 	// Fetch head branch
 	var headBranch string
 	if pr.Flow == issues_model.PullRequestFlowGithub {
-		headBranch = git.BranchPrefix + pr.HeadBranch
+		if skipHeadRepoFetch {
+			// Blender: for conflict checking on changes to the base branch, skip slow
+			// fetching from the head repository and instead use the ref that already
+			// exists in the base repository.
+			headBranch = pr.GetGitRefName()
+			remoteRepoName = "origin"
+		} else {
+			headBranch = git.BranchPrefix + pr.HeadBranch
+		}
 	} else if len(pr.HeadCommitID) == git.SHAFullLength { // for not created pull request
 		headBranch = pr.HeadCommitID
 	} else {

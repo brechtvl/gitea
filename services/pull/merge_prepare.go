@@ -45,7 +45,7 @@ func (ctx *mergeContext) RunOpts() *git.RunOpts {
 
 func createTemporaryRepoForMerge(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, expectedHeadCommitID string) (mergeCtx *mergeContext, cancel context.CancelFunc, err error) {
 	// Clone base repo.
-	prCtx, cancel, err := createTemporaryRepoForPR(ctx, pr)
+	prCtx, cancel, err := createTemporaryRepoForPR(ctx, pr, false)
 	if err != nil {
 		log.Error("createTemporaryRepoForPR: %v", err)
 		return nil, cancel, err

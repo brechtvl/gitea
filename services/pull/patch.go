@@ -58,12 +58,12 @@ var patchErrorSuffices = []string{
 }
 
 // TestPatch will test whether a simple patch will apply
-func TestPatch(pr *issues_model.PullRequest) error {
+func TestPatch(pr *issues_model.PullRequest, skipHeadRepoFetch bool) error {
 	ctx, _, finished := process.GetManager().AddContext(graceful.GetManager().HammerContext(), fmt.Sprintf("TestPatch: %s", pr))
 	defer finished()
 
 	// Clone base repo.
-	prCtx, cancel, err := createTemporaryRepoForPR(ctx, pr)
+	prCtx, cancel, err := createTemporaryRepoForPR(ctx, pr, skipHeadRepoFetch)
 	if err != nil {
 		log.Error("createTemporaryRepoForPR %-v: %v", pr, err)
 		return err

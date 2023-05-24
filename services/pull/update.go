@@ -166,7 +166,7 @@ func IsUserAllowedToUpdate(ctx context.Context, pull *issues_model.PullRequest, 
 // GetDiverging determines how many commits a PR is ahead or behind the PR base branch
 func GetDiverging(ctx context.Context, pr *issues_model.PullRequest) (*git.DivergeObject, error) {
 	log.Trace("GetDiverging[%-v]: compare commits", pr)
-	prCtx, cancel, err := createTemporaryRepoForPR(ctx, pr)
+	prCtx, cancel, err := createTemporaryRepoForPR(ctx, pr, false)
 	if err != nil {
 		if !models.IsErrBranchDoesNotExist(err) {
 			log.Error("CreateTemporaryRepoForPR %-v: %v", pr, err)

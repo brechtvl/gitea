@@ -357,7 +357,7 @@ func testPR(id int64) {
 		return
 	}
 
-	if err := TestPatch(pr); err != nil {
+	if err := TestPatch(pr, true); err != nil {
 		log.Error("testPatch[%-v]: %v", pr, err)
 		pr.Status = issues_model.PullRequestStatusError
 		if err := pr.UpdateCols("status"); err != nil {
