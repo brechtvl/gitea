@@ -1823,10 +1823,21 @@ func ViewIssue(ctx *context.Context) {
 			if pull.CanAutoMerge() || pull.IsWorkInProgress() || pull.IsChecking() {
 				return false
 			}
-			if (ctx.Doer.IsAdmin || ctx.Repo.IsAdmin()) && prConfig.AllowManualMerge {
-				return true
+			if prConfig.AllowManualMerge {
+				perm, err := access_model.GetUserRepoPermission(ctx, pull.BaseRepo, ctx.Doer)
+				if err != nil {
+					ctx.ServerError("GetUserRepoPermission", err)
+					return false
+				}
+				allowMerge, err := pull_service.IsUserAllowedToMerge(ctx, pull, perm, ctx.Doer)
+				if err != nil {
+					ctx.ServerError("IsUserAllowedToMerge", err)
+					return false
+				}
+				if allowMerge {
+					return true
+				}
 			}
-
 			return false
 		}
 
