@@ -42,6 +42,8 @@ func (repo *Repository) GetMergeBase(tmpRemote, base, head string) (string, stri
 		_, _, err := NewCommand(repo.Ctx, "fetch", "--no-tags").AddDynamicArguments(tmpRemote).AddDashesAndList(base + ":" + tmpBaseName).RunStdString(&RunOpts{Dir: repo.Path})
 		if err == nil {
 			base = tmpBaseName
+		} else {
+			logger.Trace("GetMergeBase failed to git fetch. Error: %v", err)
 		}
 	}
 
