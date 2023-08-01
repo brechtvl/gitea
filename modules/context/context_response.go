@@ -49,9 +49,9 @@ func (ctx *Context) RedirectToFirst(location ...string) {
 			continue
 		}
 
-		// Unfortunately browsers consider a redirect Location with preceding "//" and "/\" as meaning redirect to "http(s)://REST_OF_PATH"
+		// Unfortunately browsers consider a redirect Location with preceding "//", "\\" and "/\" as meaning redirect to "http(s)://REST_OF_PATH"
 		// Therefore we should ignore these redirect locations to prevent open redirects
-		if len(loc) > 1 && loc[0] == '/' && (loc[1] == '/' || loc[1] == '\\') {
+		if len(loc) > 1 && (loc[0] == '/' || loc[0] == '\\') && (loc[1] == '/' || loc[1] == '\\') {
 			continue
 		}
 
@@ -97,14 +97,14 @@ func (ctx *Context) HTML(status int, name base.TplName) {
 }
 
 // RenderToString renders the template content to a string
-func (ctx *Context) RenderToString(name base.TplName, data map[string]interface{}) (string, error) {
+func (ctx *Context) RenderToString(name base.TplName, data map[string]any) (string, error) {
 	var buf strings.Builder
 	err := ctx.Render.HTML(&buf, http.StatusOK, string(name), data)
 	return buf.String(), err
 }
 
 // RenderWithErr used for page has form validation but need to prompt error to users.
-func (ctx *Context) RenderWithErr(msg string, tpl base.TplName, form interface{}) {
+func (ctx *Context) RenderWithErr(msg string, tpl base.TplName, form any) {
 	if form != nil {
 		middleware.AssignForm(form, ctx.Data)
 	}

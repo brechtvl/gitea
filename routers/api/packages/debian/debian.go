@@ -23,7 +23,7 @@ import (
 	debian_service "code.gitea.io/gitea/services/packages/debian"
 )
 
-func apiError(ctx *context.Context, status int, obj interface{}) {
+func apiError(ctx *context.Context, status int, obj any) {
 	helper.LogAndProcessError(ctx, status, obj, func(message string) {
 		ctx.PlainText(status, message)
 	})
@@ -195,7 +195,7 @@ func UploadPackageFile(ctx *context.Context) {
 	)
 	if err != nil {
 		switch err {
-		case packages_model.ErrDuplicatePackageVersion:
+		case packages_model.ErrDuplicatePackageVersion, packages_model.ErrDuplicatePackageFile:
 			apiError(ctx, http.StatusBadRequest, err)
 		case packages_service.ErrQuotaTotalCount, packages_service.ErrQuotaTypeSize, packages_service.ErrQuotaTotalSize:
 			apiError(ctx, http.StatusForbidden, err)

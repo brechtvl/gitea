@@ -10,9 +10,9 @@ import (
 
 // Permission represents a set of permissions
 type Permission struct {
-	Admin bool `json:"admin"`
-	Push  bool `json:"push"`
-	Pull  bool `json:"pull"`
+	Admin bool `json:"admin"` // Admin indicates if the user is an administrator of the repository.
+	Push  bool `json:"push"`  // Push indicates if the user can push code to the repository.
+	Pull  bool `json:"pull"`  // Pull indicates if the user can pull code from the repository.
 }
 
 // InternalTracker represents settings for internal tracker
@@ -327,7 +327,7 @@ type MigrateRepoOptions struct {
 	// required: true
 	RepoName string `json:"repo_name" binding:"Required;AlphaDashDot;MaxSize(100)"`
 
-	// enum: git,github,gitea,gitlab
+	// enum: git,github,gitea,gitlab,gogs,onedev,gitbucket,codebase
 	Service      string `json:"service"`
 	AuthUsername string `json:"auth_username"`
 	AuthPassword string `json:"auth_password"`
@@ -373,4 +373,10 @@ type RepoTransfer struct {
 	Doer      *User   `json:"doer"`
 	Recipient *User   `json:"recipient"`
 	Teams     []*Team `json:"teams"`
+}
+
+// NewIssuePinsAllowed represents an API response that says if new Issue Pins are allowed
+type NewIssuePinsAllowed struct {
+	Issues       bool `json:"issues"`
+	PullRequests bool `json:"pull_requests"`
 }

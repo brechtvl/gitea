@@ -82,18 +82,18 @@ func SetLogSQL(ctx context.Context, on bool) ResponseExtra {
 
 // LoggerOptions represents the options for the add logger call
 type LoggerOptions struct {
-	Group  string
-	Name   string
+	Logger string
+	Writer string
 	Mode   string
-	Config map[string]interface{}
+	Config map[string]any
 }
 
 // AddLogger adds a logger
-func AddLogger(ctx context.Context, group, name, mode string, config map[string]interface{}) ResponseExtra {
+func AddLogger(ctx context.Context, logger, writer, mode string, config map[string]any) ResponseExtra {
 	reqURL := setting.LocalURL + "api/internal/manager/add-logger"
 	req := newInternalRequest(ctx, reqURL, "POST", LoggerOptions{
-		Group:  group,
-		Name:   name,
+		Logger: logger,
+		Writer: writer,
 		Mode:   mode,
 		Config: config,
 	})
@@ -101,8 +101,8 @@ func AddLogger(ctx context.Context, group, name, mode string, config map[string]
 }
 
 // RemoveLogger removes a logger
-func RemoveLogger(ctx context.Context, group, name string) ResponseExtra {
-	reqURL := setting.LocalURL + fmt.Sprintf("api/internal/manager/remove-logger/%s/%s", url.PathEscape(group), url.PathEscape(name))
+func RemoveLogger(ctx context.Context, logger, writer string) ResponseExtra {
+	reqURL := setting.LocalURL + fmt.Sprintf("api/internal/manager/remove-logger/%s/%s", url.PathEscape(logger), url.PathEscape(writer))
 	req := newInternalRequest(ctx, reqURL, "POST")
 	return requestJSONClientMsg(req, "Removed")
 }

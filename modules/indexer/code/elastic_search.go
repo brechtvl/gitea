@@ -49,14 +49,6 @@ type ElasticSearchIndexer struct {
 	lock             sync.RWMutex
 }
 
-type elasticLogger struct {
-	log.Logger
-}
-
-func (l elasticLogger) Printf(format string, args ...interface{}) {
-	_ = l.Logger.Log(2, l.Logger.GetLevel(), format, args...)
-}
-
 // NewElasticSearchIndexer creates a new elasticsearch indexer
 func NewElasticSearchIndexer(url, indexerName string) (*ElasticSearchIndexer, bool, error) {
 	opts := []elastic.ClientOptionFunc{
@@ -66,15 +58,11 @@ func NewElasticSearchIndexer(url, indexerName string) (*ElasticSearchIndexer, bo
 		elastic.SetGzip(false),
 	}
 
-	logger := elasticLogger{log.GetLogger(log.DEFAULT)}
+	logger := log.GetLogger(log.DEFAULT)
 
-	if logger.GetLevel() == log.TRACE || logger.GetLevel() == log.DEBUG {
-		opts = append(opts, elastic.SetTraceLog(logger))
-	} else if logger.GetLevel() == log.ERROR || logger.GetLevel() == log.CRITICAL || logger.GetLevel() == log.FATAL {
-		opts = append(opts, elastic.SetErrorLog(logger))
-	} else if logger.GetLevel() == log.INFO || logger.GetLevel() == log.WARN {
-		opts = append(opts, elastic.SetInfoLog(logger))
-	}
+	opts = append(opts, elastic.SetTraceLog(&log.PrintfLogger{Logf: logger.Trace}))
+	opts = append(opts, elastic.SetInfoLog(&log.PrintfLogger{Logf: logger.Info}))
+	opts = append(opts, elastic.SetErrorLog(&log.PrintfLogger{Logf: logger.Error}))
 
 	client, err := elastic.NewClient(opts...)
 	if err != nil {
@@ -253,7 +241,7 @@ func (b *ElasticSearchIndexer) addUpdate(ctx context.Context, batchWriter git.Wr
 		elastic.NewBulkIndexRequest().
 			Index(b.indexerAliasName).
 			Id(id).
-			Doc(map[string]interface{}{
+			Doc(map[string]any{
 				"repo_id":    repo.ID,
 				"content":    string(charset.ToUTF8DropErrors(fileContents)),
 				"commit_id":  sha,
@@ -354,7 +342,7 @@ func convertResult(searchResult *elastic.SearchResult, kw string, pageSize int) 
 		}
 
 		repoID, fileName := parseIndexerID(hit.Id)
-		res := make(map[string]interface{})
+		res := make(map[string]any)
 		if err := json.Unmarshal(hit.Source, &res); err != nil {
 			return 0, nil, nil, err
 		}
@@ -405,7 +393,7 @@ func (b *ElasticSearchIndexer) Search(ctx context.Context, repoIDs []int64, lang
 	query := elastic.NewBoolQuery()
 	query = query.Must(kwQuery)
 	if len(repoIDs) > 0 {
-		repoStrs := make([]interface{}, 0, len(repoIDs))
+		repoStrs := make([]any, 0, len(repoIDs))
 		for _, repoID := range repoIDs {
 			repoStrs = append(repoStrs, repoID)
 		}

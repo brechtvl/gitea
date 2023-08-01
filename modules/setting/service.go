@@ -10,6 +10,8 @@ import (
 
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/structs"
+
+	"github.com/gobwas/glob"
 )
 
 // enumerates all the types of captchas
@@ -33,8 +35,8 @@ var Service = struct {
 	ResetPwdCodeLives                       int
 	RegisterEmailConfirm                    bool
 	RegisterManualConfirm                   bool
-	EmailDomainWhitelist                    []string
-	EmailDomainBlocklist                    []string
+	EmailDomainAllowList                    []glob.Glob
+	EmailDomainBlockList                    []glob.Glob
 	DisableRegistration                     bool
 	AllowOnlyInternalRegistration           bool
 	AllowOnlyExternalRegistration           bool
@@ -114,6 +116,20 @@ func (a AllowedVisibility) ToVisibleTypeSlice() (result []structs.VisibleType) {
 	return result
 }
 
+func CompileEmailGlobList(sec ConfigSection, keys ...string) (globs []glob.Glob) {
+	for _, key := range keys {
+		list := sec.Key(key).Strings(",")
+		for _, s := range list {
+			if g, err := glob.Compile(s); err == nil {
+				globs = append(globs, g)
+			} else {
+				log.Error("Skip invalid email allow/block list expression %q: %v", s, err)
+			}
+		}
+	}
+	return globs
+}
+
 func loadServiceFrom(rootCfg ConfigProvider) {
 	sec := rootCfg.Section("service")
 	Service.ActiveCodeLives = sec.Key("ACTIVE_CODE_LIVE_MINUTES").MustInt(180)
@@ -130,8 +146,11 @@ func loadServiceFrom(rootCfg ConfigProvider) {
 	} else {
 		Service.RegisterManualConfirm = false
 	}
-	Service.EmailDomainWhitelist = sec.Key("EMAIL_DOMAIN_WHITELIST").Strings(",")
-	Service.EmailDomainBlocklist = sec.Key("EMAIL_DOMAIN_BLOCKLIST").Strings(",")
+	if sec.HasKey("EMAIL_DOMAIN_WHITELIST") {
+		deprecatedSetting(rootCfg, "service", "EMAIL_DOMAIN_WHITELIST", "service", "EMAIL_DOMAIN_ALLOWLIST", "1.21")
+	}
+	Service.EmailDomainAllowList = CompileEmailGlobList(sec, "EMAIL_DOMAIN_WHITELIST", "EMAIL_DOMAIN_ALLOWLIST")
+	Service.EmailDomainBlockList = CompileEmailGlobList(sec, "EMAIL_DOMAIN_BLOCKLIST")
 	Service.ShowRegistrationButton = sec.Key("SHOW_REGISTRATION_BUTTON").MustBool(!(Service.DisableRegistration || Service.AllowOnlyExternalRegistration))
 	Service.ShowMilestonesDashboardPage = sec.Key("SHOW_MILESTONES_DASHBOARD_PAGE").MustBool(true)
 	Service.RequireSignInView = sec.Key("REQUIRE_SIGNIN_VIEW").MustBool()
@@ -169,15 +188,33 @@ func loadServiceFrom(rootCfg ConfigProvider) {
 	Service.EnableUserHeatmap = sec.Key("ENABLE_USER_HEATMAP").MustBool(true)
 	Service.AutoWatchNewRepos = sec.Key("AUTO_WATCH_NEW_REPOS").MustBool(true)
 	Service.AutoWatchOnChanges = sec.Key("AUTO_WATCH_ON_CHANGES").MustBool(false)
-	Service.DefaultUserVisibility = sec.Key("DEFAULT_USER_VISIBILITY").In("public", structs.ExtractKeysFromMapString(structs.VisibilityModes))
-	Service.DefaultUserVisibilityMode = structs.VisibilityModes[Service.DefaultUserVisibility]
-	Service.AllowedUserVisibilityModes = sec.Key("ALLOWED_USER_VISIBILITY_MODES").Strings(",")
-	if len(Service.AllowedUserVisibilityModes) != 0 {
+	modes := sec.Key("ALLOWED_USER_VISIBILITY_MODES").Strings(",")
+	if len(modes) != 0 {
+		Service.AllowedUserVisibilityModes = []string{}
 		Service.AllowedUserVisibilityModesSlice = []bool{false, false, false}
-		for _, sMode := range Service.AllowedUserVisibilityModes {
-			Service.AllowedUserVisibilityModesSlice[structs.VisibilityModes[sMode]] = true
+		for _, sMode := range modes {
+			if tp, ok := structs.VisibilityModes[sMode]; ok { // remove unsupported modes
+				Service.AllowedUserVisibilityModes = append(Service.AllowedUserVisibilityModes, sMode)
+				Service.AllowedUserVisibilityModesSlice[tp] = true
+			} else {
+				log.Warn("ALLOWED_USER_VISIBILITY_MODES %s is unsupported", sMode)
+			}
 		}
 	}
+
+	if len(Service.AllowedUserVisibilityModes) == 0 {
+		Service.AllowedUserVisibilityModes = []string{"public", "limited", "private"}
+		Service.AllowedUserVisibilityModesSlice = []bool{true, true, true}
+	}
+
+	Service.DefaultUserVisibility = sec.Key("DEFAULT_USER_VISIBILITY").String()
+	if Service.DefaultUserVisibility == "" {
+		Service.DefaultUserVisibility = Service.AllowedUserVisibilityModes[0]
+	} else if !Service.AllowedUserVisibilityModesSlice[structs.VisibilityModes[Service.DefaultUserVisibility]] {
+		log.Warn("DEFAULT_USER_VISIBILITY %s is wrong or not in ALLOWED_USER_VISIBILITY_MODES, using first allowed", Service.DefaultUserVisibility)
+		Service.DefaultUserVisibility = Service.AllowedUserVisibilityModes[0]
+	}
+	Service.DefaultUserVisibilityMode = structs.VisibilityModes[Service.DefaultUserVisibility]
 	Service.DefaultOrgVisibility = sec.Key("DEFAULT_ORG_VISIBILITY").In("public", structs.ExtractKeysFromMapString(structs.VisibilityModes))
 	Service.DefaultOrgVisibilityMode = structs.VisibilityModes[Service.DefaultOrgVisibility]
 	Service.DefaultOrgMemberVisible = sec.Key("DEFAULT_ORG_MEMBER_VISIBLE").MustBool()

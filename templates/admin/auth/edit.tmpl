@@ -14,8 +14,8 @@
 					<span>{{.Source.TypeName}}</span>
 				</div>
 				<div class="required inline field {{if .Err_Name}}error{{end}}">
-					<label for="name">{{.locale.Tr "admin.auths.auth_name"}}</label>
-					<input id="name" name="name" value="{{.Source.Name}}" autofocus required>
+					<label for="auth_name">{{.locale.Tr "admin.auths.auth_name"}}</label>
+					<input id="auth_name" name="name" value="{{.Source.Name}}" autofocus required>
 				</div>
 
 				<!-- LDAP and DLDAP -->
@@ -133,7 +133,7 @@
 						</div>
 						<div class="field">
 							<label>{{.locale.Tr "admin.auths.map_group_to_team"}}</label>
-							<input name="group_team_map" value="{{$cfg.GroupTeamMap}}" placeholder='e.g. {"cn=my-group,cn=groups,dc=example,dc=org": {"MyGiteaOrganization": ["MyGiteaTeam1", "MyGiteaTeam2"]}}'>
+							<textarea name="group_team_map" rows="5" placeholder='e.g. {"cn=my-group,cn=groups,dc=example,dc=org": {"MyGiteaOrganization": ["MyGiteaTeam1", "MyGiteaTeam2"]}}'>{{$cfg.GroupTeamMap}}</textarea>
 						</div>
 						<div class="ui checkbox">
 							<label>{{.locale.Tr "admin.auths.map_group_to_team_removal"}}</label>
@@ -360,7 +360,7 @@
 					</div>
 					<div class="field">
 						<label>{{.locale.Tr "admin.auths.oauth2_map_group_to_team"}}</label>
-						<input name="oauth2_group_team_map" value="{{$cfg.GroupTeamMap}}" placeholder='e.g. {"Developer": {"MyGiteaOrganization": ["MyGiteaTeam1", "MyGiteaTeam2"]}}'>
+						<textarea name="oauth2_group_team_map" rows="5" placeholder='e.g. {"Developer": {"MyGiteaOrganization": ["MyGiteaTeam1", "MyGiteaTeam2"]}}'>{{$cfg.GroupTeamMap}}</textarea>
 					</div>
 					<div class="ui checkbox">
 						<label>{{.locale.Tr "admin.auths.oauth2_map_group_to_team_removal"}}</label>
@@ -433,6 +433,17 @@
 					<button class="ui red button delete-button" data-url="{{$.Link}}/delete" data-id="{{.Source.ID}}">{{.locale.Tr "admin.auths.delete"}}</button>
 				</div>
 			</form>
+		</div>
+
+		<h4 class="ui top attached header">
+			{{.locale.Tr "admin.auths.tips"}}
+		</h4>
+		<div class="ui attached segment">
+			<h5>GMail Settings:</h5>
+			<p>Host: smtp.gmail.com, Port: 587, Enable TLS Encryption: true</p>
+
+			<h5 class="oauth2">{{.locale.Tr "admin.auths.tips.oauth2.general"}}:</h5>
+			<p class="oauth2">{{.locale.Tr "admin.auths.tips.oauth2.general.tip"}} <b id="oauth2-callback-url"></b></p>
 		</div>
 	</div>
 

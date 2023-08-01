@@ -23,7 +23,7 @@ function showContentHistoryDetail(issueBaseUrl, commentId, historyId, itemTitleH
       </div>
     </div>
   </div>
-  <div class="comment-diff-data gt-tl gt-p-3 is-loading"></div>
+  <div class="comment-diff-data gt-text-left gt-p-3 is-loading"></div>
 </div>`);
   $dialog.appendTo($('body'));
   $dialog.find('.dialog-header-options').dropdown({
@@ -75,8 +75,8 @@ function showContentHistoryDetail(issueBaseUrl, commentId, historyId, itemTitleH
 function showContentHistoryMenu(issueBaseUrl, $item, commentId) {
   const $headerLeft = $item.find('.comment-header-left');
   const menuHtml = `
-  <div class="ui pointing dropdown top left content-history-menu" data-comment-id="${commentId}">
-    &bull; <a>${i18nTextEdited}${svg('octicon-triangle-down', 14, 'dropdown icon gt-ml-1 gt-mt-1')}</a>
+  <div class="ui dropdown interact-fg content-history-menu" data-comment-id="${commentId}">
+    &bull; ${i18nTextEdited}${svg('octicon-triangle-down', 14, 'dropdown icon')}
     <div class="menu">
     </div>
   </div>`;

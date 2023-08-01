@@ -1,6 +1,6 @@
 module code.gitea.io/gitea
 
-go 1.19
+go 1.20
 
 require (
 	code.gitea.io/actions-proto-go v0.2.1
@@ -55,7 +55,7 @@ require (
 	github.com/gogs/cron v0.0.0-20171120032916-9f6c956d3e14
 	github.com/gogs/go-gogs-client v0.0.0-20210131175652-1d7215cd8d85
 	github.com/golang-jwt/jwt/v4 v4.5.0
-	github.com/google/go-github/v51 v51.0.0
+	github.com/google/go-github/v52 v52.0.0
 	github.com/google/pprof v0.0.0-20230502171905-255e3b9b56de
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/feeds v1.1.1
@@ -121,8 +121,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	mvdan.cc/xurls/v2 v2.4.0
 	strk.kbt.io/projects/go/libravatar v0.0.0-20191008002943-06d1c002b251
-	xorm.io/builder v0.3.12
-	xorm.io/xorm v1.3.3-0.20230219231735-056cecc97e9e
+	xorm.io/builder v0.3.13
+	xorm.io/xorm v1.3.3-0.20230725140238-59b727260d35
 )
 
 require (
@@ -136,7 +136,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.0 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.3 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
-	github.com/ProtonMail/go-crypto v0.0.0-20230426101702-58e86b294756 // indirect
+	github.com/ProtonMail/go-crypto v0.0.0-20230528122434-6f98819771a1 // indirect
 	github.com/RoaringBitmap/roaring v1.2.3 // indirect
 	github.com/acomagu/bufpipe v1.0.4 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect

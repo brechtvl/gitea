@@ -89,15 +89,20 @@ func generateSaveInternalToken(rootCfg ConfigProvider) {
 	}
 
 	InternalToken = token
+	saveCfg, err := rootCfg.PrepareSaving()
+	if err != nil {
+		log.Fatal("Error saving internal token: %v", err)
+	}
 	rootCfg.Section("security").Key("INTERNAL_TOKEN").SetValue(token)
-	if err := rootCfg.Save(); err != nil {
+	saveCfg.Section("security").Key("INTERNAL_TOKEN").SetValue(token)
+	if err = saveCfg.Save(); err != nil {
 		log.Fatal("Error saving internal token: %v", err)
 	}
 }
 
 func loadSecurityFrom(rootCfg ConfigProvider) {
 	sec := rootCfg.Section("security")
-	InstallLock = sec.Key("INSTALL_LOCK").MustBool(false)
+	InstallLock = HasInstallLock(rootCfg)
 	LogInRememberDays = sec.Key("LOGIN_REMEMBER_DAYS").MustInt(7)
 	CookieUserName = sec.Key("COOKIE_USERNAME").MustString("gitea_awesome")
 	SecretKey = loadSecret(sec, "SECRET_KEY_URI", "SECRET_KEY")

@@ -1,6 +1,6 @@
 import $ from 'jquery';
 import 'jquery.are-you-sure';
-import {mqBinarySearch} from '../utils.js';
+import {clippie} from 'clippie';
 import {createDropzone} from './dropzone.js';
 import {initCompColorPicker} from './comp/ColorPicker.js';
 import {showGlobalErrorMessage} from '../bootstrap.js';
@@ -8,8 +8,9 @@ import {handleGlobalEnterQuickSubmit} from './comp/QuickSubmit.js';
 import {svg} from '../svg.js';
 import {hideElem, showElem, toggleElem} from '../utils/dom.js';
 import {htmlEscape} from 'escape-goat';
+import {showTemporaryTooltip} from '../modules/tippy.js';
 
-const {appUrl, csrfToken} = window.config;
+const {appUrl, csrfToken, i18n} = window.config;
 
 export function initGlobalFormDirtyLeaveConfirm() {
   // Warn users that try to leave a page after entering data into a form.
@@ -20,18 +21,14 @@ export function initGlobalFormDirtyLeaveConfirm() {
 }
 
 export function initHeadNavbarContentToggle() {
-  const content = $('#navbar');
-  const toggle = $('#navbar-expand-toggle');
-  let isExpanded = false;
-  toggle.on('click', () => {
-    isExpanded = !isExpanded;
-    if (isExpanded) {
-      content.addClass('shown');
-      toggle.addClass('active');
-    } else {
-      content.removeClass('shown');
-      toggle.removeClass('active');
-    }
+  const navbar = document.getElementById('navbar');
+  const btn = document.getElementById('navbar-expand-toggle');
+  if (!navbar || !btn) return;
+
+  btn.addEventListener('click', () => {
+    const isExpanded = btn.classList.contains('active');
+    navbar.classList.toggle('navbar-menu-open', !isExpanded);
+    btn.classList.toggle('active', !isExpanded);
   });
 }
 
@@ -66,19 +63,6 @@ export function initGlobalButtonClickOnEnter() {
 }
 
 export function initGlobalCommon() {
-  // Undo Safari emoji glitch fix at high enough zoom levels
-  if (navigator.userAgent.match('Safari')) {
-    $(window).on('resize', () => {
-      const px = mqBinarySearch('width', 0, 4096, 1, 'px');
-      const em = mqBinarySearch('width', 0, 1024, 0.01, 'em');
-      if (em * 16 * 1.25 - px <= -1) {
-        $('body').addClass('safari-above125');
-      } else {
-        $('body').removeClass('safari-above125');
-      }
-    });
-  }
-
   // Semantic UI modules.
   const $uiDropdowns = $('.ui.dropdown');
 
@@ -161,10 +145,10 @@ export function initGlobalDropzone() {
           // Create a "Copy Link" element, to conveniently copy the image
           // or file link as Markdown to the clipboard
           const copyLinkElement = document.createElement('div');
-          copyLinkElement.className = 'gt-tc';
+          copyLinkElement.className = 'gt-text-center';
           // The a element has a hardcoded cursor: pointer because the default is overridden by .dropzone
           copyLinkElement.innerHTML = `<a href="#" style="cursor: pointer;">${svg('octicon-copy', 14, 'copy link')} Copy link</a>`;
-          copyLinkElement.addEventListener('click', (e) => {
+          copyLinkElement.addEventListener('click', async (e) => {
             e.preventDefault();
             let fileMarkdown = `[${file.name}](/attachments/${file.uuid})`;
             if (file.type.startsWith('image/')) {
@@ -172,7 +156,8 @@ export function initGlobalDropzone() {
             } else if (file.type.startsWith('video/')) {
               fileMarkdown = `<video src="/attachments/${file.uuid}" title="${htmlEscape(file.name)}" controls></video>`;
             }
-            navigator.clipboard.writeText(fileMarkdown);
+            const success = await clippie(fileMarkdown);
+            showTemporaryTooltip(e.target, success ? i18n.copy_success : i18n.copy_error);
           });
           file.previewTemplate.append(copyLinkElement);
         });
@@ -391,5 +376,5 @@ export function checkAppUrl() {
     return;
   }
   showGlobalErrorMessage(`Your ROOT_URL in app.ini is "${appUrl}", it's unlikely matching the site you are visiting.
-Mismatched ROOT_URL config causes wrong URL links for web UI/mail content/webhook notification.`);
+Mismatched ROOT_URL config causes wrong URL links for web UI/mail content/webhook notification/OAuth2 sign-in.`);
 }

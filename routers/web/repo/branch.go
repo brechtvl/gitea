@@ -146,7 +146,7 @@ func RestoreBranchPost(ctx *context.Context) {
 	// Don't return error below this
 	if err := repo_service.PushUpdate(
 		&repo_module.PushUpdateOptions{
-			RefFullName:  git.BranchPrefix + deletedBranch.Name,
+			RefFullName:  git.RefNameFromBranch(deletedBranch.Name),
 			OldCommitID:  git.EmptySHA,
 			NewCommitID:  deletedBranch.Commit,
 			PusherID:     ctx.Doer.ID,
@@ -161,7 +161,7 @@ func RestoreBranchPost(ctx *context.Context) {
 }
 
 func redirect(ctx *context.Context) {
-	ctx.JSON(http.StatusOK, map[string]interface{}{
+	ctx.JSON(http.StatusOK, map[string]any{
 		"redirect": ctx.Repo.RepoLink + "/branches?page=" + url.QueryEscape(ctx.FormString("page")),
 	})
 }
@@ -396,7 +396,7 @@ func CreateBranch(ctx *context.Context) {
 			if len(e.Message) == 0 {
 				ctx.Flash.Error(ctx.Tr("repo.editor.push_rejected_no_message"))
 			} else {
-				flashError, err := ctx.RenderToString(tplAlertDetails, map[string]interface{}{
+				flashError, err := ctx.RenderToString(tplAlertDetails, map[string]any{
 					"Message": ctx.Tr("repo.editor.push_rejected"),
 					"Summary": ctx.Tr("repo.editor.push_rejected_summary"),
 					"Details": utils.SanitizeFlashErrorString(e.Message),

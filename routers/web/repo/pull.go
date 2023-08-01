@@ -272,6 +272,17 @@ func ForkPost(ctx *context.Context) {
 			ctx.RenderWithErr(msg, tplFork, &form)
 		case repo_model.IsErrRepoAlreadyExist(err):
 			ctx.RenderWithErr(ctx.Tr("repo.settings.new_owner_has_same_repo"), tplFork, &form)
+		case repo_model.IsErrRepoFilesAlreadyExist(err):
+			switch {
+			case ctx.IsUserSiteAdmin() || (setting.Repository.AllowAdoptionOfUnadoptedRepositories && setting.Repository.AllowDeleteOfUnadoptedRepositories):
+				ctx.RenderWithErr(ctx.Tr("form.repository_files_already_exist.adopt_or_delete"), tplFork, form)
+			case setting.Repository.AllowAdoptionOfUnadoptedRepositories:
+				ctx.RenderWithErr(ctx.Tr("form.repository_files_already_exist.adopt"), tplFork, form)
+			case setting.Repository.AllowDeleteOfUnadoptedRepositories:
+				ctx.RenderWithErr(ctx.Tr("form.repository_files_already_exist.delete"), tplFork, form)
+			default:
+				ctx.RenderWithErr(ctx.Tr("form.repository_files_already_exist"), tplFork, form)
+			}
 		case db.IsErrNameReserved(err):
 			ctx.RenderWithErr(ctx.Tr("repo.form.name_reserved", err.(db.ErrNameReserved).Name), tplFork, &form)
 		case db.IsErrNamePatternNotAllowed(err):
@@ -410,7 +421,7 @@ func PrepareMergedViewPullInfo(ctx *context.Context, issue *issues_model.Issue) 
 
 	if len(compareInfo.Commits) != 0 {
 		sha := compareInfo.Commits[0].ID.String()
-		commitStatuses, _, err := git_model.GetLatestCommitStatus(ctx, ctx.Repo.Repository.ID, sha, db.ListOptions{})
+		commitStatuses, _, err := git_model.GetLatestCommitStatus(ctx, ctx.Repo.Repository.ID, sha, db.ListOptions{ListAll: true})
 		if err != nil {
 			ctx.ServerError("GetLatestCommitStatus", err)
 			return nil
@@ -472,7 +483,7 @@ func PrepareViewPullInfo(ctx *context.Context, issue *issues_model.Issue) *git.C
 			ctx.ServerError(fmt.Sprintf("GetRefCommitID(%s)", pull.GetGitRefName()), err)
 			return nil
 		}
-		commitStatuses, _, err := git_model.GetLatestCommitStatus(ctx, repo.ID, sha, db.ListOptions{})
+		commitStatuses, _, err := git_model.GetLatestCommitStatus(ctx, repo.ID, sha, db.ListOptions{ListAll: true})
 		if err != nil {
 			ctx.ServerError("GetLatestCommitStatus", err)
 			return nil
@@ -564,7 +575,7 @@ func PrepareViewPullInfo(ctx *context.Context, issue *issues_model.Issue) *git.C
 		return nil
 	}
 
-	commitStatuses, _, err := git_model.GetLatestCommitStatus(ctx, repo.ID, sha, db.ListOptions{})
+	commitStatuses, _, err := git_model.GetLatestCommitStatus(ctx, repo.ID, sha, db.ListOptions{ListAll: true})
 	if err != nil {
 		ctx.ServerError("GetLatestCommitStatus", err)
 		return nil
@@ -746,12 +757,12 @@ func ViewPullFiles(ctx *context.Context) {
 		return
 	}
 
-	ctx.PageData["prReview"] = map[string]interface{}{
+	ctx.PageData["prReview"] = map[string]any{
 		"numberOfFiles":       diff.NumFiles,
 		"numberOfViewedFiles": diff.NumViewedFiles,
 	}
 
-	if err = diff.LoadComments(ctx, issue, ctx.Doer); err != nil {
+	if err = diff.LoadComments(ctx, issue, ctx.Doer, ctx.Data["ShowOutdatedComments"].(bool)); err != nil {
 		ctx.ServerError("LoadComments", err)
 		return
 	}
@@ -881,7 +892,7 @@ func UpdatePullRequest(ctx *context.Context) {
 	if err = pull_service.Update(ctx, issue.PullRequest, ctx.Doer, message, rebase); err != nil {
 		if models.IsErrMergeConflicts(err) {
 			conflictError := err.(models.ErrMergeConflicts)
-			flashError, err := ctx.RenderToString(tplAlertDetails, map[string]interface{}{
+			flashError, err := ctx.RenderToString(tplAlertDetails, map[string]any{
 				"Message": ctx.Tr("repo.pulls.merge_conflict"),
 				"Summary": ctx.Tr("repo.pulls.merge_conflict_summary"),
 				"Details": utils.SanitizeFlashErrorString(conflictError.StdErr) + "<br>" + utils.SanitizeFlashErrorString(conflictError.StdOut),
@@ -895,7 +906,7 @@ func UpdatePullRequest(ctx *context.Context) {
 			return
 		} else if models.IsErrRebaseConflicts(err) {
 			conflictError := err.(models.ErrRebaseConflicts)
-			flashError, err := ctx.RenderToString(tplAlertDetails, map[string]interface{}{
+			flashError, err := ctx.RenderToString(tplAlertDetails, map[string]any{
 				"Message": ctx.Tr("repo.pulls.rebase_conflict", utils.SanitizeFlashErrorString(conflictError.CommitSHA)),
 				"Summary": ctx.Tr("repo.pulls.rebase_conflict_summary"),
 				"Details": utils.SanitizeFlashErrorString(conflictError.StdErr) + "<br>" + utils.SanitizeFlashErrorString(conflictError.StdOut),
@@ -1030,7 +1041,7 @@ func MergePullRequest(ctx *context.Context) {
 			ctx.Redirect(issue.Link())
 		} else if models.IsErrMergeConflicts(err) {
 			conflictError := err.(models.ErrMergeConflicts)
-			flashError, err := ctx.RenderToString(tplAlertDetails, map[string]interface{}{
+			flashError, err := ctx.RenderToString(tplAlertDetails, map[string]any{
 				"Message": ctx.Tr("repo.editor.merge_conflict"),
 				"Summary": ctx.Tr("repo.editor.merge_conflict_summary"),
 				"Details": utils.SanitizeFlashErrorString(conflictError.StdErr) + "<br>" + utils.SanitizeFlashErrorString(conflictError.StdOut),
@@ -1043,7 +1054,7 @@ func MergePullRequest(ctx *context.Context) {
 			ctx.Redirect(issue.Link())
 		} else if models.IsErrRebaseConflicts(err) {
 			conflictError := err.(models.ErrRebaseConflicts)
-			flashError, err := ctx.RenderToString(tplAlertDetails, map[string]interface{}{
+			flashError, err := ctx.RenderToString(tplAlertDetails, map[string]any{
 				"Message": ctx.Tr("repo.pulls.rebase_conflict", utils.SanitizeFlashErrorString(conflictError.CommitSHA)),
 				"Summary": ctx.Tr("repo.pulls.rebase_conflict_summary"),
 				"Details": utils.SanitizeFlashErrorString(conflictError.StdErr) + "<br>" + utils.SanitizeFlashErrorString(conflictError.StdOut),
@@ -1073,7 +1084,7 @@ func MergePullRequest(ctx *context.Context) {
 			if len(message) == 0 {
 				ctx.Flash.Error(ctx.Tr("repo.pulls.push_rejected_no_message"))
 			} else {
-				flashError, err := ctx.RenderToString(tplAlertDetails, map[string]interface{}{
+				flashError, err := ctx.RenderToString(tplAlertDetails, map[string]any{
 					"Message": ctx.Tr("repo.pulls.push_rejected"),
 					"Summary": ctx.Tr("repo.pulls.push_rejected_summary"),
 					"Details": utils.SanitizeFlashErrorString(pushrejErr.Message),
@@ -1269,7 +1280,7 @@ func CompareAndPullRequestPost(ctx *context.Context) {
 			if len(message) == 0 {
 				ctx.Flash.Error(ctx.Tr("repo.pulls.push_rejected_no_message"))
 			} else {
-				flashError, err := ctx.RenderToString(tplAlertDetails, map[string]interface{}{
+				flashError, err := ctx.RenderToString(tplAlertDetails, map[string]any{
 					"Message": ctx.Tr("repo.pulls.push_rejected"),
 					"Summary": ctx.Tr("repo.pulls.push_rejected_summary"),
 					"Details": utils.SanitizeFlashErrorString(pushrejErr.Message),
@@ -1375,7 +1386,7 @@ func CleanUpPullRequest(ctx *context.Context) {
 	}
 
 	defer func() {
-		ctx.JSON(http.StatusOK, map[string]interface{}{
+		ctx.JSON(http.StatusOK, map[string]any{
 			"redirect": issue.Link(),
 		})
 	}()
@@ -1459,10 +1470,10 @@ func DownloadPullDiffOrPatch(ctx *context.Context, patch bool) {
 // UpdatePullRequestTarget change pull request's target branch
 func UpdatePullRequestTarget(ctx *context.Context) {
 	issue := GetActionIssue(ctx)
-	pr := issue.PullRequest
 	if ctx.Written() {
 		return
 	}
+	pr := issue.PullRequest
 	if !issue.IsPull {
 		ctx.Error(http.StatusNotFound)
 		return
@@ -1487,7 +1498,7 @@ func UpdatePullRequestTarget(ctx *context.Context) {
 			errorMessage := ctx.Tr("repo.pulls.has_pull_request", html.EscapeString(ctx.Repo.RepoLink+"/pulls/"+strconv.FormatInt(err.IssueID, 10)), html.EscapeString(RepoRelPath), err.IssueID) // FIXME: Creates url inside locale string
 
 			ctx.Flash.Error(errorMessage)
-			ctx.JSON(http.StatusConflict, map[string]interface{}{
+			ctx.JSON(http.StatusConflict, map[string]any{
 				"error":      err.Error(),
 				"user_error": errorMessage,
 			})
@@ -1495,7 +1506,7 @@ func UpdatePullRequestTarget(ctx *context.Context) {
 			errorMessage := ctx.Tr("repo.pulls.is_closed")
 
 			ctx.Flash.Error(errorMessage)
-			ctx.JSON(http.StatusConflict, map[string]interface{}{
+			ctx.JSON(http.StatusConflict, map[string]any{
 				"error":      err.Error(),
 				"user_error": errorMessage,
 			})
@@ -1503,7 +1514,7 @@ func UpdatePullRequestTarget(ctx *context.Context) {
 			errorMessage := ctx.Tr("repo.pulls.has_merged")
 
 			ctx.Flash.Error(errorMessage)
-			ctx.JSON(http.StatusConflict, map[string]interface{}{
+			ctx.JSON(http.StatusConflict, map[string]any{
 				"error":      err.Error(),
 				"user_error": errorMessage,
 			})
@@ -1511,7 +1522,7 @@ func UpdatePullRequestTarget(ctx *context.Context) {
 			errorMessage := ctx.Tr("repo.pulls.nothing_to_compare")
 
 			ctx.Flash.Error(errorMessage)
-			ctx.JSON(http.StatusBadRequest, map[string]interface{}{
+			ctx.JSON(http.StatusBadRequest, map[string]any{
 				"error":      err.Error(),
 				"user_error": errorMessage,
 			})
@@ -1522,7 +1533,7 @@ func UpdatePullRequestTarget(ctx *context.Context) {
 	}
 	notification.NotifyPullRequestChangeTargetBranch(ctx, ctx.Doer, pr, targetBranch)
 
-	ctx.JSON(http.StatusOK, map[string]interface{}{
+	ctx.JSON(http.StatusOK, map[string]any{
 		"base_branch": pr.BaseBranch,
 	})
 }
@@ -1550,7 +1561,7 @@ func SetAllowEdits(ctx *context.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, map[string]interface{}{
+	ctx.JSON(http.StatusOK, map[string]any{
 		"allow_maintainer_edit": pr.AllowMaintainerEdit,
 	})
 }

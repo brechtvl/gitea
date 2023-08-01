@@ -74,7 +74,7 @@
 .markup h6 {
   margin-top: 24px;
   margin-bottom: 16px;
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-semibold);
   line-height: 1.25;
 }
 
@@ -252,7 +252,7 @@
   margin-top: 16px;
   font-size: 1em;
   font-style: italic;
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-semibold);
 }
 
 .markup dl dd {
@@ -284,7 +284,7 @@
 }
 
 .markup table th {
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-semibold);
 }
 
 .markup table th,
@@ -515,20 +515,6 @@
 .markup ol.ui.list ol,
 .markup ul.ui.list ul {
   padding-left: 2em;
-}
-
-.repository.wiki.revisions .ui.container > .ui.stackable.grid {
-  -ms-flex-direction: row-reverse;
-  flex-direction: row-reverse;
-}
-
-.repository.wiki.revisions .ui.container > .ui.stackable.grid > .header {
-  margin-top: 0;
-}
-
-.repository.wiki.revisions .ui.container > .ui.stackable.grid > .header .sub.header {
-  padding-left: 52px;
-  word-break: break-word;
 }
 
 .file-revisions-btn {

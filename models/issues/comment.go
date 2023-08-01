@@ -107,6 +107,8 @@ const (
 	CommentTypePRScheduledToAutoMerge   // 34 pr was scheduled to auto merge when checks succeed
 	CommentTypePRUnScheduledToAutoMerge // 35 pr was un scheduled to auto merge when checks succeed
 
+	CommentTypePin   // 36 pin Issue
+	CommentTypeUnpin // 37 unpin Issue
 )
 
 var commentStrings = []string{
@@ -146,6 +148,8 @@ var commentStrings = []string{
 	"change_issue_ref",
 	"pull_scheduled_merge",
 	"pull_cancel_scheduled_merge",
+	"pin",
+	"unpin",
 }
 
 func (t CommentType) String() string {
@@ -163,7 +167,7 @@ func AsCommentType(typeName string) CommentType {
 
 func (t CommentType) HasContentSupport() bool {
 	switch t {
-	case CommentTypeComment, CommentTypeCode, CommentTypeReview:
+	case CommentTypeComment, CommentTypeCode, CommentTypeReview, CommentTypeDismissReview:
 		return true
 	}
 	return false
@@ -1127,7 +1131,7 @@ func DeleteComment(ctx context.Context, comment *Comment) error {
 	}
 	if _, err := e.Table("action").
 		Where("comment_id = ?", comment.ID).
-		Update(map[string]interface{}{
+		Update(map[string]any{
 			"is_deleted": true,
 		}); err != nil {
 		return err
@@ -1152,7 +1156,7 @@ func UpdateCommentsMigrationsByType(tp structs.GitServiceType, originalAuthorID 
 				}),
 		)).
 		And("comment.original_author_id = ?", originalAuthorID).
-		Update(map[string]interface{}{
+		Update(map[string]any{
 			"poster_id":          posterID,
 			"original_author":    "",
 			"original_author_id": 0,

@@ -181,7 +181,7 @@ func Create(ctx *context.Context) {
 	ctx.HTML(http.StatusOK, tplCreate)
 }
 
-func handleCreateError(ctx *context.Context, owner *user_model.User, err error, name string, tpl base.TplName, form interface{}) {
+func handleCreateError(ctx *context.Context, owner *user_model.User, err error, name string, tpl base.TplName, form any) {
 	switch {
 	case repo_model.IsErrReachLimitOfRepo(err):
 		maxCreationLimit := owner.MaxCreationLimit()
@@ -427,7 +427,7 @@ func download(ctx *context.Context, archiveName string, archiver *repo_model.Rep
 	downloadName := ctx.Repo.Repository.Name + "-" + archiveName
 
 	rPath := archiver.RelativePath()
-	if setting.RepoArchive.ServeDirect {
+	if setting.RepoArchive.Storage.MinioConfig.ServeDirect {
 		// If we have a signed url (S3, object storage), redirect to this directly.
 		u, err := storage.RepoArchives.URL(rPath, downloadName)
 		if u != nil && err == nil {
@@ -482,7 +482,7 @@ func InitiateDownload(ctx *context.Context) {
 		completed = true
 	}
 
-	ctx.JSON(http.StatusOK, map[string]interface{}{
+	ctx.JSON(http.StatusOK, map[string]any{
 		"complete": completed,
 	})
 }

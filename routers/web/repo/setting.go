@@ -64,6 +64,7 @@ func SettingsCtxData(ctx *context.Context) {
 	ctx.Data["PageIsSettingsOptions"] = true
 	ctx.Data["ForcePrivate"] = setting.Repository.ForcePrivate
 	ctx.Data["MirrorsEnabled"] = setting.Mirror.Enabled
+	ctx.Data["DisableNewPullMirrors"] = setting.Mirror.DisableNewPull
 	ctx.Data["DisableNewPushMirrors"] = setting.Mirror.DisableNewPush
 	ctx.Data["DefaultMirrorInterval"] = setting.Mirror.DefaultInterval
 	ctx.Data["MinimumMirrorInterval"] = setting.Mirror.MinInterval
@@ -108,6 +109,7 @@ func SettingsPost(ctx *context.Context) {
 
 	ctx.Data["ForcePrivate"] = setting.Repository.ForcePrivate
 	ctx.Data["MirrorsEnabled"] = setting.Mirror.Enabled
+	ctx.Data["DisableNewPullMirrors"] = setting.Mirror.DisableNewPull
 	ctx.Data["DisableNewPushMirrors"] = setting.Mirror.DisableNewPush
 	ctx.Data["DefaultMirrorInterval"] = setting.Mirror.DefaultInterval
 	ctx.Data["MinimumMirrorInterval"] = setting.Mirror.MinInterval
@@ -1003,7 +1005,7 @@ func DeleteCollaboration(ctx *context.Context) {
 		ctx.Flash.Success(ctx.Tr("repo.settings.remove_collaborator_success"))
 	}
 
-	ctx.JSON(http.StatusOK, map[string]interface{}{
+	ctx.JSON(http.StatusOK, map[string]any{
 		"redirect": ctx.Repo.RepoLink + "/settings/collaboration",
 	})
 }
@@ -1074,7 +1076,7 @@ func DeleteTeam(ctx *context.Context) {
 	}
 
 	ctx.Flash.Success(ctx.Tr("repo.settings.remove_team_success"))
-	ctx.JSON(http.StatusOK, map[string]interface{}{
+	ctx.JSON(http.StatusOK, map[string]any{
 		"redirect": ctx.Repo.RepoLink + "/settings/collaboration",
 	})
 }
@@ -1222,7 +1224,7 @@ func DeleteDeployKey(ctx *context.Context) {
 		ctx.Flash.Success(ctx.Tr("repo.settings.deploy_key_deletion_success"))
 	}
 
-	ctx.JSON(http.StatusOK, map[string]interface{}{
+	ctx.JSON(http.StatusOK, map[string]any{
 		"redirect": ctx.Repo.RepoLink + "/settings/keys",
 	})
 }

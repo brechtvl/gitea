@@ -262,9 +262,10 @@ func registerRoutes(m *web.Route) {
 		}
 	}
 
-	reqUnitAccess := func(unitType unit.Type, accessMode perm.AccessMode) func(ctx *context.Context) {
+	reqUnitAccess := func(unitType unit.Type, accessMode perm.AccessMode, ignoreGlobal bool) func(ctx *context.Context) {
 		return func(ctx *context.Context) {
-			if unitType.UnitGlobalDisabled() {
+			// only check global disabled units when ignoreGlobal is false
+			if !ignoreGlobal && unitType.UnitGlobalDisabled() {
 				ctx.NotFound(unitType.String(), nil)
 				return
 			}
@@ -356,7 +357,12 @@ func registerRoutes(m *web.Route) {
 		m.Get("/users", explore.Users)
 		m.Get("/users/sitemap-{idx}.xml", sitemapEnabled, explore.Users)
 		m.Get("/organizations", explore.Organizations)
-		m.Get("/code", reqUnitAccess(unit.TypeCode, perm.AccessModeRead), explore.Code)
+		m.Get("/code", func(ctx *context.Context) {
+			if unit.TypeCode.UnitGlobalDisabled() {
+				ctx.NotFound(unit.TypeCode.String(), nil)
+				return
+			}
+		}, explore.Code)
 		m.Get("/topics/search", explore.TopicSearch)
 	}, ignExploreSignIn)
 	m.Group("/issues", func() {
@@ -492,6 +498,7 @@ func registerRoutes(m *web.Route) {
 
 		m.Group("/actions", func() {
 			m.Get("", user_setting.RedirectToDefaultSetting)
+			addSettingsRunnersRoutes()
 			addSettingsSecretsRoutes()
 		}, actions.MustEnableActions)
 
@@ -537,8 +544,8 @@ func registerRoutes(m *web.Route) {
 
 	// ***** START: Admin *****
 	m.Group("/admin", func() {
-		m.Get("", adminReq, admin.Dashboard)
-		m.Post("", adminReq, web.Bind(forms.AdminDashboardForm{}), admin.DashboardPost)
+		m.Get("", admin.Dashboard)
+		m.Post("", web.Bind(forms.AdminDashboardForm{}), admin.DashboardPost)
 
 		m.Group("/config", func() {
 			m.Get("", admin.Config)
@@ -547,6 +554,7 @@ func registerRoutes(m *web.Route) {
 		})
 
 		m.Group("/monitor", func() {
+			m.Get("/stats", admin.MonitorStats)
 			m.Get("/cron", admin.CronTasks)
 			m.Get("/stacktrace", admin.Stacktrace)
 			m.Post("/stacktrace/cancel/{pid}", admin.StacktraceCancel)
@@ -821,15 +829,15 @@ func registerRoutes(m *web.Route) {
 			m.Group("", func() {
 				m.Get("", org.Projects)
 				m.Get("/{id}", org.ViewProject)
-			}, reqUnitAccess(unit.TypeProjects, perm.AccessModeRead))
+			}, reqUnitAccess(unit.TypeProjects, perm.AccessModeRead, true))
 			m.Group("", func() { //nolint:dupl
-				m.Get("/new", org.NewProject)
+				m.Get("/new", org.RenderNewProject)
 				m.Post("/new", web.Bind(forms.CreateProjectForm{}), org.NewProjectPost)
 				m.Group("/{id}", func() {
 					m.Post("", web.Bind(forms.EditProjectBoardForm{}), org.AddBoardToProjectPost)
 					m.Post("/delete", org.DeleteProject)
 
-					m.Get("/edit", org.EditProject)
+					m.Get("/edit", org.RenderEditProject)
 					m.Post("/edit", web.Bind(forms.CreateProjectForm{}), org.EditProjectPost)
 					m.Post("/{action:open|close}", org.ChangeProjectStatus)
 
@@ -842,17 +850,17 @@ func registerRoutes(m *web.Route) {
 						m.Post("/move", org.MoveIssues)
 					})
 				})
-			}, reqSignIn, reqUnitAccess(unit.TypeProjects, perm.AccessModeWrite), func(ctx *context.Context) {
+			}, reqSignIn, reqUnitAccess(unit.TypeProjects, perm.AccessModeWrite, true), func(ctx *context.Context) {
 				if ctx.ContextUser.IsIndividual() && ctx.ContextUser.ID != ctx.Doer.ID {
 					ctx.NotFound("NewProject", nil)
 					return
 				}
 			})
-		}, repo.MustEnableProjects)
+		})
 
 		m.Group("", func() {
 			m.Get("/code", user.CodeSearch)
-		}, reqUnitAccess(unit.TypeCode, perm.AccessModeRead))
+		}, reqUnitAccess(unit.TypeCode, perm.AccessModeRead, false))
 	}, ignSignIn, context_service.UserAssignmentWeb(), context.OrgAssignment()) // for "/{username}/-" (packages, projects, code)
 
 	// ***** Release Attachment Download without Signin
@@ -987,6 +995,7 @@ func registerRoutes(m *web.Route) {
 				m.Post("/deadline", web.Bind(structs.EditDeadlineOption{}), repo.UpdateIssueDeadline)
 				m.Post("/watch", repo.IssueWatch)
 				m.Post("/ref", repo.UpdateIssueRef)
+				m.Post("/pin", reqRepoAdmin, repo.IssuePinOrUnpin)
 				m.Post("/viewed-files", repo.UpdateViewedFiles)
 				m.Group("/dependency", func() {
 					m.Post("/add", repo.AddDependency)
@@ -1021,9 +1030,11 @@ func registerRoutes(m *web.Route) {
 			m.Post("/request_review", reqRepoIssuesOrPullsReader, repo.UpdatePullReviewRequest)
 			m.Post("/dismiss_review", reqRepoAdmin, web.Bind(forms.DismissReviewForm{}), repo.DismissReview)
 			m.Post("/status", reqRepoIssuesOrPullsWriter, repo.UpdateIssueStatus)
-			m.Post("/resolve_conversation", reqRepoIssuesOrPullsReader, repo.UpdateResolveConversation)
+			m.Post("/resolve_conversation", reqRepoIssuesOrPullsReader, repo.SetShowOutdatedComments, repo.UpdateResolveConversation)
 			m.Post("/attachments", repo.UploadIssueAttachment)
 			m.Post("/attachments/remove", repo.DeleteAttachment)
+			m.Delete("/unpin/{index}", reqRepoAdmin, repo.IssueUnpin)
+			m.Post("/move_pin", reqRepoAdmin, repo.IssuePinMove)
 		}, context.RepoMustNotBeArchived())
 		m.Group("/comments/{id}", func() {
 			m.Post("", repo.UpdateCommentContent)
@@ -1133,10 +1144,8 @@ func registerRoutes(m *web.Route) {
 
 	m.Group("/{username}/{reponame}", func() {
 		m.Group("", func() {
-			m.Group("/{type:issues|pulls}", func() {
-				m.Get("", repo.Issues)
-				m.Get("/posters", repo.IssuePosters)
-			})
+			m.Get("/issues/posters", repo.IssuePosters) // it can't use {type:issues|pulls} because other routes like "/pulls/{index}" has higher priority
+			m.Get("/{type:issues|pulls}", repo.Issues)
 			m.Get("/{type:issues|pulls}/{index}", repo.ViewIssue)
 			m.Group("/{type:issues|pulls}/{index}/content-history", func() {
 				m.Get("/overview", repo.GetContentHistoryOverview)
@@ -1155,13 +1164,13 @@ func registerRoutes(m *web.Route) {
 			m.Get("", repo.Projects)
 			m.Get("/{id}", repo.ViewProject)
 			m.Group("", func() { //nolint:dupl
-				m.Get("/new", repo.NewProject)
+				m.Get("/new", repo.RenderNewProject)
 				m.Post("/new", web.Bind(forms.CreateProjectForm{}), repo.NewProjectPost)
 				m.Group("/{id}", func() {
 					m.Post("", web.Bind(forms.EditProjectBoardForm{}), repo.AddBoardToProjectPost)
 					m.Post("/delete", repo.DeleteProject)
 
-					m.Get("/edit", repo.EditProject)
+					m.Get("/edit", repo.RenderEditProject)
 					m.Post("/edit", web.Bind(forms.CreateProjectForm{}), repo.EditProjectPost)
 					m.Post("/{action:open|close}", repo.ChangeProjectStatus)
 
@@ -1257,6 +1266,7 @@ func registerRoutes(m *web.Route) {
 			return cancel
 		})
 
+		m.Get("/pulls/posters", repo.PullPosters)
 		m.Group("/pulls/{index}", func() {
 			m.Get(".diff", repo.DownloadPullDiff)
 			m.Get(".patch", repo.DownloadPullPatch)
@@ -1267,10 +1277,10 @@ func registerRoutes(m *web.Route) {
 			m.Post("/set_allow_maintainer_edit", web.Bind(forms.UpdateAllowEditsForm{}), repo.SetAllowEdits)
 			m.Post("/cleanup", context.RepoMustNotBeArchived(), context.RepoRef(), repo.CleanUpPullRequest)
 			m.Group("/files", func() {
-				m.Get("", context.RepoRef(), repo.SetEditorconfigIfExists, repo.SetDiffViewStyle, repo.SetWhitespaceBehavior, repo.ViewPullFiles)
+				m.Get("", context.RepoRef(), repo.SetEditorconfigIfExists, repo.SetDiffViewStyle, repo.SetWhitespaceBehavior, repo.SetShowOutdatedComments, repo.ViewPullFiles)
 				m.Group("/reviews", func() {
 					m.Get("/new_comment", repo.RenderNewCodeCommentForm)
-					m.Post("/comments", web.Bind(forms.CodeCommentForm{}), repo.CreateCodeComment)
+					m.Post("/comments", web.Bind(forms.CodeCommentForm{}), repo.SetShowOutdatedComments, repo.CreateCodeComment)
 					m.Post("/submit", web.Bind(forms.SubmitReviewForm{}), repo.SubmitReview)
 				}, context.RepoMustNotBeArchived())
 			})
