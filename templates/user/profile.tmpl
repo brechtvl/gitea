@@ -116,6 +116,11 @@
 								{{end}}
 							</li>
 							{{end}}
+							{{if and .IsSigned $.IsAdmin (ne .SignedUserID .ContextUser.ID)}}
+							<li class="follow">
+								<a href="{{AppSubUrl}}/admin/users/{{.ContextUser.ID}}" class="ui basic red button">Admin</a>
+							</li>
+							{{end}}
 						</ul>
 					</div>
 				</div>
