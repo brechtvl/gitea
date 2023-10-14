@@ -27,6 +27,7 @@ import (
 	"code.gitea.io/gitea/modules/git"
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/setting"
+	"code.gitea.io/gitea/modules/timeutil"
 
 	"xorm.io/xorm"
 	"xorm.io/xorm/names"
@@ -649,5 +650,18 @@ Please try upgrading to a lower version first (suggested v1.6.4), then upgrade t
 			return err
 		}
 	}
+
+	// BLENDER: extra migration for backport, without bumping version.
+	// Remove when upgrading to Gitea 1.22.
+	type AuthToken struct {
+		ID          string `xorm:"pk"`
+		TokenHash   string
+		UserID      int64              `xorm:"INDEX"`
+		ExpiresUnix timeutil.TimeStamp `xorm:"INDEX"`
+	}
+	if err = x.Sync(new(AuthToken)); err != nil {
+		return fmt.Errorf("migration blender auth_token failed: %w", err)
+	}
+
 	return nil
 }
