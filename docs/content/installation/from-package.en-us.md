@@ -24,7 +24,6 @@ Following the [deployment from binary](installation/from-binary.md) guide may wo
 but is not supported. To install Gitea via `brew`:
 
 ```
-brew tap gitea/tap https://gitea.com/gitea/homebrew-gitea
 brew install gitea
 ```
 
@@ -40,7 +39,7 @@ apk add gitea
 
 ## Arch Linux
 
-The rolling release distribution has [Gitea](https://www.archlinux.org/packages/community/x86_64/gitea/) in their official community repository and package updates are provided with new Gitea releases.
+The rolling release distribution has [Gitea](https://www.archlinux.org/packages/extra/x86_64/gitea/) in their official extra repository and package updates are provided with new Gitea releases.
 
 ```sh
 pacman -S gitea

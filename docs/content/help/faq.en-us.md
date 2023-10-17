@@ -186,7 +186,7 @@ To add your own theme, currently the only way is to provide a complete theme (no
 
 As an example, let's say our theme is `arc-blue` (this is a real theme, and can be found [in this issue](https://github.com/go-gitea/gitea/issues/6011))
 
-Name the `.css` file `theme-arc-blue.css` and add it to your custom folder in `custom/public/css`
+Name the `.css` file `theme-arc-blue.css` and add it to your custom folder in `custom/public/assets/css`
 
 Allow users to use it by adding `arc-blue` to the list of `THEMES` in your `app.ini`
 
@@ -390,8 +390,6 @@ Please run `gitea convert`, or run `ALTER DATABASE database_name CHARACTER SET u
 for the database_name and run `ALTER TABLE table_name CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;`
 for each table in the database.
 
-You will also need to change the app.ini database charset to `CHARSET=utf8mb4`.
-
 ## Why are Emoji displaying only as placeholders or in monochrome
 
 Gitea requires the system or browser to have one of the supported Emoji fonts installed, which are Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji and Twemoji Mozilla. Generally, the operating system should already provide one of these fonts, but especially on Linux, it may be necessary to install them manually.
@@ -412,7 +410,7 @@ Sometimes when there are migrations the old columns and default values may be le
 unchanged in the database schema. This may lead to warning such as:
 
 ```
-2020/08/02 11:32:29 ...rm/session_schema.go:360:Sync2() [W] Table user Column keep_activity_private db default is , struct default is 0
+2020/08/02 11:32:29 ...rm/session_schema.go:360:Sync() [W] Table user Column keep_activity_private db default is , struct default is 0
 ```
 
 These can safely be ignored, but you are able to stop these warnings by getting Gitea to recreate these tables using:

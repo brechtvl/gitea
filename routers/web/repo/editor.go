@@ -124,7 +124,7 @@ func editFile(ctx *context.Context, isNewFile bool) {
 	if !isNewFile {
 		entry, err := ctx.Repo.Commit.GetTreeEntryByPath(ctx.Repo.TreePath)
 		if err != nil {
-			ctx.NotFoundOrServerError("GetTreeEntryByPath", git.IsErrNotExist, err)
+			HandleGitError(ctx, "Repo.Commit.GetTreeEntryByPath", err)
 			return
 		}
 
@@ -192,7 +192,7 @@ func editFile(ctx *context.Context, isNewFile bool) {
 	ctx.Data["last_commit"] = ctx.Repo.CommitID
 	ctx.Data["PreviewableExtensions"] = strings.Join(markup.PreviewableExtensions(), ",")
 	ctx.Data["LineWrapExtensions"] = strings.Join(setting.Repository.Editor.LineWrapExtensions, ",")
-	ctx.Data["Editorconfig"] = GetEditorConfig(ctx, treePath)
+	ctx.Data["EditorconfigJson"] = GetEditorConfig(ctx, treePath)
 
 	ctx.HTML(http.StatusOK, tplEditFile)
 }
@@ -243,7 +243,7 @@ func editFilePost(ctx *context.Context, form forms.EditRepoFileForm, isNewFile b
 	ctx.Data["last_commit"] = ctx.Repo.CommitID
 	ctx.Data["PreviewableExtensions"] = strings.Join(markup.PreviewableExtensions(), ",")
 	ctx.Data["LineWrapExtensions"] = strings.Join(setting.Repository.Editor.LineWrapExtensions, ",")
-	ctx.Data["Editorconfig"] = GetEditorConfig(ctx, form.TreePath)
+	ctx.Data["EditorconfigJson"] = GetEditorConfig(ctx, form.TreePath)
 
 	if ctx.HasError() {
 		ctx.HTML(http.StatusOK, tplEditFile)
@@ -285,10 +285,10 @@ func editFilePost(ctx *context.Context, form forms.EditRepoFileForm, isNewFile b
 		Message:      message,
 		Files: []*files_service.ChangeRepoFile{
 			{
-				Operation:    operation,
-				FromTreePath: ctx.Repo.TreePath,
-				TreePath:     form.TreePath,
-				Content:      strings.ReplaceAll(form.Content, "\r", ""),
+				Operation:     operation,
+				FromTreePath:  ctx.Repo.TreePath,
+				TreePath:      form.TreePath,
+				ContentReader: strings.NewReader(form.Content),
 			},
 		},
 		Signoff: form.Signoff,
@@ -328,10 +328,10 @@ func editFilePost(ctx *context.Context, form forms.EditRepoFileForm, isNewFile b
 			} else {
 				ctx.Error(http.StatusInternalServerError, err.Error())
 			}
-		} else if models.IsErrBranchAlreadyExists(err) {
+		} else if git_model.IsErrBranchAlreadyExists(err) {
 			// For when a user specifies a new branch that already exists
 			ctx.Data["Err_NewBranchName"] = true
-			if branchErr, ok := err.(models.ErrBranchAlreadyExists); ok {
+			if branchErr, ok := err.(git_model.ErrBranchAlreadyExists); ok {
 				ctx.RenderWithErr(ctx.Tr("repo.editor.branch_already_exists", branchErr.BranchName), tplEditFile, &form)
 			} else {
 				ctx.Error(http.StatusInternalServerError, err.Error())
@@ -371,7 +371,9 @@ func editFilePost(ctx *context.Context, form forms.EditRepoFileForm, isNewFile b
 	}
 
 	if ctx.Repo.Repository.IsEmpty {
-		_ = repo_model.UpdateRepositoryCols(ctx, &repo_model.Repository{ID: ctx.Repo.Repository.ID, IsEmpty: false}, "is_empty")
+		if isEmpty, err := ctx.Repo.GitRepo.IsEmpty(); err == nil && !isEmpty {
+			_ = repo_model.UpdateRepositoryCols(ctx, &repo_model.Repository{ID: ctx.Repo.Repository.ID, IsEmpty: false}, "is_empty")
+		}
 	}
 
 	redirectForCommitChoice(ctx, form.CommitChoice, branchName, form.TreePath)
@@ -530,9 +532,9 @@ func DeleteFilePost(ctx *context.Context) {
 			} else {
 				ctx.Error(http.StatusInternalServerError, err.Error())
 			}
-		} else if models.IsErrBranchAlreadyExists(err) {
+		} else if git_model.IsErrBranchAlreadyExists(err) {
 			// For when a user specifies a new branch that already exists
-			if branchErr, ok := err.(models.ErrBranchAlreadyExists); ok {
+			if branchErr, ok := err.(git_model.ErrBranchAlreadyExists); ok {
 				ctx.RenderWithErr(ctx.Tr("repo.editor.branch_already_exists", branchErr.BranchName), tplDeleteFile, &form)
 			} else {
 				ctx.Error(http.StatusInternalServerError, err.Error())
@@ -732,10 +734,10 @@ func UploadFilePost(ctx *context.Context) {
 		} else if git.IsErrBranchNotExist(err) {
 			branchErr := err.(git.ErrBranchNotExist)
 			ctx.RenderWithErr(ctx.Tr("repo.editor.branch_does_not_exist", branchErr.Name), tplUploadFile, &form)
-		} else if models.IsErrBranchAlreadyExists(err) {
+		} else if git_model.IsErrBranchAlreadyExists(err) {
 			// For when a user specifies a new branch that already exists
 			ctx.Data["Err_NewBranchName"] = true
-			branchErr := err.(models.ErrBranchAlreadyExists)
+			branchErr := err.(git_model.ErrBranchAlreadyExists)
 			ctx.RenderWithErr(ctx.Tr("repo.editor.branch_already_exists", branchErr.BranchName), tplUploadFile, &form)
 		} else if git.IsErrPushOutOfDate(err) {
 			ctx.RenderWithErr(ctx.Tr("repo.editor.file_changed_while_editing", ctx.Repo.RepoLink+"/compare/"+util.PathEscapeSegments(ctx.Repo.CommitID)+"..."+util.PathEscapeSegments(form.NewBranchName)), tplUploadFile, &form)
@@ -764,7 +766,9 @@ func UploadFilePost(ctx *context.Context) {
 	}
 
 	if ctx.Repo.Repository.IsEmpty {
-		_ = repo_model.UpdateRepositoryCols(ctx, &repo_model.Repository{ID: ctx.Repo.Repository.ID, IsEmpty: false}, "is_empty")
+		if isEmpty, err := ctx.Repo.GitRepo.IsEmpty(); err == nil && !isEmpty {
+			_ = repo_model.UpdateRepositoryCols(ctx, &repo_model.Repository{ID: ctx.Repo.Repository.ID, IsEmpty: false}, "is_empty")
+		}
 	}
 
 	redirectForCommitChoice(ctx, form.CommitChoice, branchName, form.TreePath)
@@ -809,7 +813,7 @@ func UploadFileToServer(ctx *context.Context) {
 		return
 	}
 
-	upload, err := repo_model.NewUpload(name, buf, file)
+	upload, err := repo_model.NewUpload(ctx, name, buf, file)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, fmt.Sprintf("NewUpload: %v", err))
 		return
@@ -829,7 +833,7 @@ func RemoveUploadFileFromServer(ctx *context.Context) {
 		return
 	}
 
-	if err := repo_model.DeleteUploadByUUID(form.File); err != nil {
+	if err := repo_model.DeleteUploadByUUID(ctx, form.File); err != nil {
 		ctx.Error(http.StatusInternalServerError, fmt.Sprintf("DeleteUploadByUUID: %v", err))
 		return
 	}
