@@ -1927,7 +1927,7 @@ func ViewIssue(ctx *context.Context) {
 			if pull.CanAutoMerge() || pull.IsWorkInProgress() || pull.IsChecking() {
 				return false
 			}
-			if (ctx.Doer.IsAdmin || ctx.Repo.IsAdmin()) && prConfig.AllowManualMerge {
+			if (ctx.Doer.IsAdmin || ctx.Repo.CanWrite(unit.TypeCode)) && prConfig.AllowManualMerge {
 				return true
 			}
 
