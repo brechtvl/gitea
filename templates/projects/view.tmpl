@@ -2,6 +2,16 @@
 
 <div class="gt-df gt-sb gt-ac gt-mb-4">
 	<h2 class="gt-mb-0">{{.Project.Title}}</h2>
+		<div class="ui compact mini menu" style="margin-left: auto; margin-right: 1em;">
+			<button class="item btn" onclick="clickDetailsView()">
+				<span class="issue-card-details">Show Details</span>
+				<span class="issue-card-details gt-hidden">Hide Details</span>
+			</button>
+			<button class="item btn" onclick="clickClosedView()">
+				<span class="issue-card-closed">Show Closed</span>
+				<span class="issue-card-closed gt-hidden">Hide Closed</span>
+			</button>
+		</div>
 	{{if $canWriteProject}}
 		<div class="ui compact mini menu">
 			<a class="item" href="{{.Link}}/edit?redirect=project">
@@ -165,7 +175,7 @@
 
 				<div class="ui cards {{if and $canWriteProject (ne .ID 0)}}{{/* ID 0 is default column which cannot be moved */}}gt-cursor-grab{{end}}" data-url="{{$.Link}}/{{.ID}}" data-project="{{$.Project.ID}}" data-board="{{.ID}}" id="board_{{.ID}}">
 					{{range (index $.IssuesMap .ID)}}
-						<div class="issue-card gt-word-break {{if $canWriteProject}}gt-cursor-grab{{end}}" data-issue="{{.ID}}">
+						<div class="issue-card gt-word-break {{if $canWriteProject}}gt-cursor-grab{{end}} {{if .IsClosed}}issue-card-closed gt-hidden{{end}}" data-issue="{{.ID}}">
 							{{template "repo/issue/card" (dict "Issue" . "Page" $)}}
 						</div>
 					{{end}}
@@ -174,6 +184,37 @@
 		{{end}}
 	</div>
 </div>
+
+<script>
+	keyDetails = 'project-show-issue-details:{{.Repository.FullName | JSEscape}}:{{.Project.ID}}';
+	keyClosed = 'project-show-issue-closed:{{.Repository.FullName | JSEscape}}:{{.Project.ID}}';
+
+	function toggleDetailsView() {
+		for (const elem of document.querySelectorAll('.issue-card-details')) {
+			elem.classList.toggle('gt-hidden');
+		}
+	}
+	function clickDetailsView() {
+		localStorage.setItem(keyDetails, (localStorage.getItem(keyDetails) === 'true') ? 'false' : 'true');
+		toggleDetailsView();
+	}
+	if (localStorage.getItem(keyDetails) === 'true') {
+		toggleDetailsView();
+	}
+
+	function toggleClosedView() {
+		for (const elem of document.querySelectorAll('.issue-card-closed')) {
+			elem.classList.toggle('gt-hidden');
+		}
+	}
+	function clickClosedView() {
+		localStorage.setItem(keyClosed, (localStorage.getItem(keyClosed) === 'true') ? 'false' : 'true');
+		toggleClosedView();
+	}
+	if (localStorage.getItem(keyClosed) === 'true') {
+		toggleClosedView();
+	}
+</script>
 
 {{if .CanWriteProjects}}
 	<div class="ui g-modal-confirm delete modal">

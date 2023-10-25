@@ -19,3 +19,8 @@
   font-size: 18px;
   margin-left: 4px;
 }
+
+.issue-card .right.floated {
+  float: right;
+  margin-left: 0.5em;
+}
