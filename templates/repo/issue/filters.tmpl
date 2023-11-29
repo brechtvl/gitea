@@ -45,7 +45,7 @@
 							{{if .IsExcluded}}
 								{{svg "octicon-circle-slash"}}
 							{{else if .IsSelected}}
-								{{if $scope}}
+								{{if .ExclusiveScope}}
 									{{svg "octicon-dot-fill"}}
 								{{else}}
 									{{svg "octicon-check"}}
