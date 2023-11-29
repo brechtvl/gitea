@@ -215,6 +215,8 @@ func (b *Indexer) Search(ctx context.Context, options *internal.SearchOptions) (
 		Limit:  int64(limit),
 		Offset: int64(skip),
 		Sort:   sortBy,
+		// BLENDER: require matching all terms
+		MatchingStrategy: "all",
 	})
 	if err != nil {
 		return nil, err
