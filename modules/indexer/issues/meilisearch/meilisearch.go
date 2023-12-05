@@ -211,11 +211,10 @@ func (b *Indexer) Search(ctx context.Context, options *internal.SearchOptions) (
 	skip, limit := indexer_internal.ParsePaginator(options.Paginator, maxTotalHits)
 
 	searchRes, err := b.inner.Client.Index(b.inner.VersionedIndexName()).Search(options.Keyword, &meilisearch.SearchRequest{
-		Filter: query.Statement(),
-		Limit:  int64(limit),
-		Offset: int64(skip),
-		Sort:   sortBy,
-		// BLENDER: require matching all terms
+		Filter:           query.Statement(),
+		Limit:            int64(limit),
+		Offset:           int64(skip),
+		Sort:             sortBy,
 		MatchingStrategy: "all",
 	})
 	if err != nil {
