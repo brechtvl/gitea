@@ -852,9 +852,10 @@ func fullIssuePatternProcessor(ctx *RenderContext, node *html.Node) {
 }
 
 func issueIndexPatternProcessor(ctx *RenderContext, node *html.Node) {
-	if ctx.Metas == nil || ctx.Metas["mode"] == "document" {
+	if ctx.Metas == nil {
 		return
 	}
+	crossLinkOnly := ctx.Metas["mode"] == "document"
 	var (
 		found bool
 		ref   *references.RenderizableReference
@@ -868,7 +869,7 @@ func issueIndexPatternProcessor(ctx *RenderContext, node *html.Node) {
 		// Repos with external issue trackers might still need to reference local PRs
 		// We need to concern with the first one that shows up in the text, whichever it is
 		isNumericStyle := ctx.Metas["style"] == "" || ctx.Metas["style"] == IssueNameStyleNumeric
-		foundNumeric, refNumeric := references.FindRenderizableReferenceNumeric(node.Data, hasExtTrackFormat && !isNumericStyle)
+		foundNumeric, refNumeric := references.FindRenderizableReferenceNumeric(node.Data, hasExtTrackFormat && !isNumericStyle, crossLinkOnly)
 
 		switch ctx.Metas["style"] {
 		case "", IssueNameStyleNumeric:
