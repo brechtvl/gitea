@@ -4,6 +4,121 @@ This changelog goes through all the changes that have been made in each release
 without substantial changes to our git log; to see the highlights of what has
 been added to each release, please refer to the [blog](https://blog.gitea.com).
 
+## [1.21.5](https://github.com/go-gitea/gitea/releases/tag/1.21.5) - 2024-01-31
+
+* SECURITY
+  * Prevent anonymous container access if `RequireSignInView` is enabled (#28877) (#28882)
+  * Update go dependencies and fix go-git (#28893) (#28934)
+* BUGFIXES
+  * Revert "Speed up loading the dashboard on mysql/mariadb (#28546)" (#29006) (#29007)
+  * Fix an actions schedule bug (#28942) (#28999)
+  * Fix update enable_prune even if mirror_interval is not provided (#28905) (#28929)
+  * Fix uploaded artifacts should be overwritten (#28726) backport v1.21 (#28832)
+  * Preserve BOM in web editor (#28935) (#28959)
+  * Strip `/` from relative links (#28932) (#28952)
+  * Don't remove all mirror repository's releases when mirroring (#28817) (#28939)
+  * Implement `MigrateRepository` for the actions notifier (#28920) (#28923)
+  * Respect branch info for relative links (#28909) (#28922)
+  * Don't reload timeline page when (un)resolving or replying conversation (#28654) (#28917)
+  * Only migrate the first 255 chars of a Github issue title (#28902) (#28912)
+  * Fix sort bug on repository issues list (#28897) (#28901)
+  * Fix `DeleteCollaboration` transaction behaviour (#28886) (#28889)
+  * Fix schedule not trigger bug because matching full ref name with short ref name (#28874) (#28888)
+  * Fix migrate storage bug (#28830) (#28867)
+  * Fix archive creating LFS hooks and breaking pull requests (#28848) (#28851)
+  * Fix reverting a merge commit failing (#28794) (#28825)
+  * Upgrade xorm to v1.3.7 to fix a resource leak problem caused by Iterate (#28891) (#28895)
+  * Fix incorrect PostgreSQL connection string for Unix sockets (#28865) (#28870)
+* ENHANCEMENTS
+  * Make loading animation less aggressive (#28955) (#28956)
+  * Avoid duplicate JS error messages on UI (#28873) (#28881)
+  * Bump `@github/relative-time-element` to 4.3.1 (#28819) (#28826)
+* MISC
+  * Warn that `DISABLE_QUERY_AUTH_TOKEN` is false only if it's explicitly defined (#28783) (#28868)
+  * Remove duplicated checkinit on git module (#28824) (#28831)
+
+## [1.21.4](https://github.com/go-gitea/gitea/releases/tag/1.21.4) - 2024-01-16
+
+* SECURITY
+  * Update github.com/cloudflare/circl (#28789) (#28790)
+  * Require token for GET subscription endpoint (#28765) (#28768)
+* BUGFIXES
+  * Use refname:strip-2 instead of refname:short when syncing tags (#28797) (#28811)
+  * Fix links in issue card (#28806) (#28807)
+  * Fix nil pointer panic when exec some gitea cli command (#28791) (#28795)
+  * Require token for GET subscription endpoint (#28765) (#28778)
+  * Fix button size in "attached header right" (#28770) (#28774)
+  * Fix `convert.ToTeams` on empty input (#28426) (#28767)
+  * Hide code related setting options in repository when code unit is disabled (#28631) (#28749)
+  * Fix incorrect URL for "Reference in New Issue" (#28716) (#28723)
+  * Fix panic when parsing empty pgsql host (#28708) (#28709)
+  * Upgrade xorm to new version which supported update join for all supported databases (#28590) (#28668)
+  * Fix alpine package files are not rebuilt (#28638) (#28665)
+  * Avoid cycle-redirecting user/login page (#28636) (#28658)
+  * Fix empty ref for cron workflow runs (#28640) (#28647)
+  * Remove unnecessary syncbranchToDB with tests (#28624) (#28629)
+  * Use known issue IID to generate new PR index number when migrating from GitLab (#28616) (#28618)
+  * Fix flex container width (#28603) (#28605)
+  * Fix the scroll behavior for emoji/mention list (#28597) (#28601)
+  * Fix wrong due date rendering in issue list page (#28588) (#28591)
+  * Fix `status_check_contexts` matching bug (#28582) (#28589)
+  * Fix 500 error of searching commits (#28576) (#28579)
+  * Use information from previous blame parts (#28572) (#28577)
+  * Update mermaid for 1.21 (#28571)
+  * Fix 405 method not allowed CORS / OIDC (#28583) (#28586) (#28587) (#28611)
+  * Fix `GetCommitStatuses` (#28787) (#28804)
+  * Forbid removing the last admin user (#28337) (#28793)
+  * Fix schedule tasks bugs (#28691) (#28780)
+  * Fix issue dependencies (#27736) (#28776)
+  * Fix system webhooks API bug (#28531) (#28666)
+  * Fix when private user following user, private user will not be counted in his own view (#28037) (#28792)
+  * Render code block in activity tab (#28816) (#28818)
+* ENHANCEMENTS
+  * Rework markup link rendering (#26745) (#28803)
+  * Modernize merge button (#28140) (#28786)
+  * Speed up loading the dashboard on mysql/mariadb (#28546) (#28784)
+  * Assign pull request to project during creation (#28227) (#28775)
+  * Show description as tooltip instead of title for labels (#28754) (#28766)
+  * Make template `DateTime` show proper tooltip (#28677) (#28683)
+  * Switch destination directory for apt signing keys (#28639) (#28642)
+  * Include heap pprof in diagnosis report to help debugging memory leaks (#28596) (#28599)
+* DOCS
+  * Suggest to use Type=simple for systemd service (#28717) (#28722)
+  * Extend description for ARTIFACT_RETENTION_DAYS (#28626) (#28630)
+* MISC
+  * Add -F to commit search to treat keywords as strings (#28744) (#28748)
+  * Add download attribute to release attachments (#28739) (#28740)
+  * Concatenate error in `checkIfPRContentChanged` (#28731) (#28737)
+  * Improve 1.21 document for Database Preparation (#28643) (#28644)
+
+## [1.21.3](https://github.com/go-gitea/gitea/releases/tag/1.21.3) - 2023-12-21
+
+* SECURITY
+  * Update golang.org/x/crypto (#28519)
+* API
+  * chore(api): support ignore password if login source type is LDAP for creating user API (#28491) (#28525)
+  * Add endpoint for not implemented Docker auth (#28457) (#28462)
+* ENHANCEMENTS
+  * Add option to disable ambiguous unicode characters detection (#28454) (#28499)
+  * Refactor SSH clone URL generation code (#28421) (#28480)
+  * Polyfill SubmitEvent for PaleMoon (#28441) (#28478)
+* BUGFIXES
+  * Fix the issue ref rendering for wiki (#28556) (#28559)
+  * Fix duplicate ID when deleting repo (#28520) (#28528)
+  * Only check online runner when detecting matching runners in workflows (#28286) (#28512)
+  * Initalize stroage for orphaned repository doctor (#28487) (#28490)
+  * Fix possible nil pointer access (#28428) (#28440)
+  * Don't show unnecessary citation JS error on UI (#28433) (#28437)
+* DOCS
+  * Update actions document about comparsion as Github Actions (#28560) (#28564)
+  * Fix documents for "custom/public/assets/" (#28465) (#28467)
+* MISC
+  * Fix inperformant query on retrifing review from database. (#28552) (#28562)
+  * Improve the prompt for "ssh-keygen sign" (#28509) (#28510)
+  * Update docs for DISABLE_QUERY_AUTH_TOKEN (#28485) (#28488)
+  * Fix Chinese translation of config cheat sheet[API] (#28472) (#28473)
+  * Retry SSH key verification with additional CRLF if it failed (#28392) (#28464)
+
 ## [1.21.2](https://github.com/go-gitea/gitea/releases/tag/1.21.2) - 2023-12-12
 
 * SECURITY

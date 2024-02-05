@@ -821,9 +821,7 @@ func Routes() *web.Route {
 	m.Use(securityHeaders())
 	if setting.CORSConfig.Enabled {
 		m.Use(cors.Handler(cors.Options{
-			// Scheme:           setting.CORSConfig.Scheme, // FIXME: the cors middleware needs scheme option
-			AllowedOrigins: setting.CORSConfig.AllowDomain,
-			// setting.CORSConfig.AllowSubdomain // FIXME: the cors middleware needs allowSubdomain option
+			AllowedOrigins:   setting.CORSConfig.AllowDomain,
 			AllowedMethods:   setting.CORSConfig.Methods,
 			AllowCredentials: setting.CORSConfig.AllowCredentials,
 			AllowedHeaders:   append([]string{"Authorization", "X-Gitea-OTP"}, setting.CORSConfig.Headers...),
@@ -1145,9 +1143,9 @@ func Routes() *web.Route {
 				m.Get("/subscribers", repo.ListSubscribers)
 				m.Group("/subscription", func() {
 					m.Get("", user.IsWatching)
-					m.Put("", reqToken(), user.Watch)
-					m.Delete("", reqToken(), user.Unwatch)
-				})
+					m.Put("", user.Watch)
+					m.Delete("", user.Unwatch)
+				}, reqToken())
 				m.Group("/releases", func() {
 					m.Combo("").Get(repo.ListReleases).
 						Post(reqToken(), reqRepoWriter(unit.TypeReleases), context.ReferencesGitRepo(), bind(api.CreateReleaseOption{}), repo.CreateRelease)
