@@ -104,6 +104,43 @@ func CanMaintainerWriteToBranch(ctx context.Context, p access_model.Permission, 
 	return false
 }
 
+// GetUnmergedPullRequestsWithAllowMaintainerEdit returns all pull requests that are open, have not been merged,
+// have allow edit by maintainer.
+func GetUnmergedPullRequestsWithAllowMaintainerEdit(ctx context.Context, repoID int64) (PullRequestList, error) {
+	prs := make([]*PullRequest, 0, 2)
+	sess := db.GetEngine(ctx).
+		Join("INNER", "issue", "issue.id = pull_request.issue_id").
+		Where("head_repo_id = ? AND allow_maintainer_edit = ? AND has_merged = ? AND issue.is_closed = ? AND flow = ?", repoID, true, false, false, PullRequestFlowGithub)
+	return prs, sess.Find(&prs)
+}
+
+// CanMaintainerWriteToLFS checks if a user can write LFS files to a repository
+func CanMaintainerWriteToLFS(ctx context.Context, p access_model.Permission, repoID int64, user *user_model.User) bool {
+	if p.CanWrite(unit.TypeCode) {
+		return true
+	}
+
+	prs, err := GetUnmergedPullRequestsWithAllowMaintainerEdit(ctx, repoID)
+	if err != nil {
+		return false
+	}
+
+	for _, pr := range prs {
+		err = pr.LoadBaseRepo(ctx)
+		if err != nil {
+			continue
+		}
+		prPerm, err := access_model.GetUserRepoPermission(ctx, pr.BaseRepo, user)
+		if err != nil {
+			continue
+		}
+		if prPerm.CanWrite(unit.TypeCode) {
+			return true
+		}
+	}
+	return false
+}
+
 // HasUnmergedPullRequestsByHeadInfo checks if there are open and not merged pull request
 // by given head information (repo and branch)
 func HasUnmergedPullRequestsByHeadInfo(ctx context.Context, repoID int64, branch string) (bool, error) {

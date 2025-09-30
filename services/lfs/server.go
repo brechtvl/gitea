@@ -22,6 +22,7 @@ import (
 	actions_model "code.gitea.io/gitea/models/actions"
 	auth_model "code.gitea.io/gitea/models/auth"
 	git_model "code.gitea.io/gitea/models/git"
+	issues_model "code.gitea.io/gitea/models/issues"
 	perm_model "code.gitea.io/gitea/models/perm"
 	access_model "code.gitea.io/gitea/models/perm/access"
 	repo_model "code.gitea.io/gitea/models/repo"
@@ -543,8 +544,14 @@ func authenticate(ctx *context.Context, repository *repo_model.Repository, autho
 		return false
 	}
 
-	canRead := perm.CanAccess(accessMode, unit.TypeCode)
-	if canRead && (!requireSigned || ctx.IsSigned) {
+	canAccess := false
+	if requireWrite {
+		canAccess = issues_model.CanMaintainerWriteToLFS(ctx, perm, repository.ID, ctx.Doer)
+	} else {
+		canAccess = perm.CanAccess(accessMode, unit.TypeCode)
+	}
+
+	if canAccess && (!requireSigned || ctx.IsSigned) {
 		return true
 	}
 
